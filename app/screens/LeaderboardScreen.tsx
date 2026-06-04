@@ -18,7 +18,7 @@ import { EmptyState, SurfaceCard, Chip } from '../../components/ui/premium';
 import { Fonts } from '../../constants/fonts';
 import { ScreenSkeleton } from '../../components/LoadingSkeleton';
 
-export default function LeaderboardScreen() {
+export default function LeaderboardScreen({ isTab = false }: { isTab?: boolean }) {
   const { colors, isDark } = useTheme();
   const { studentId } = useAuth();
   const tr = useT();
@@ -159,12 +159,14 @@ export default function LeaderboardScreen() {
     <Animated.View style={[styles.container, { backgroundColor: colors.background, opacity: screenFade }]}>
       {/* Custom Sub-screen Header with Back Navigation */}
       <View style={[styles.headerRow, { borderBottomColor: colors.borderSubtle }]}>
-        <TouchableOpacity
-          style={styles.backBtn}
-          onPress={() => router.back()}
-        >
-          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
-        </TouchableOpacity>
+        {!isTab && (
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => router.back()}
+          >
+            <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+          </TouchableOpacity>
+        )}
         <Text style={[styles.headerTitle, { color: colors.textPrimary, fontFamily: Fonts.display }]}>
           {tr('competition')}
         </Text>
@@ -432,7 +434,7 @@ const styles = StyleSheet.create({
   },
   avatarInitials: { fontSize: 13, fontWeight: '600' },
   lbInfo: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  lbName: { fontSize: 15, fontWeight: '500' },
+  lbName: { fontSize: 15, fontWeight: '500', flexShrink: 1 },
   levelBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
   levelBadgeText: { fontSize: 11 },
   lbXp: { fontSize: 14, fontWeight: '600' },

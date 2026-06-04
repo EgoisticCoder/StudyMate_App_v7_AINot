@@ -158,7 +158,7 @@ export function WeeklyTimetableCard({ studentId, reloadTick = 0 }: Props) {
   const PADDING = 16;
   const TIME_W = 70;
   const AVAIL = SCREEN_W - PADDING * 2 - TIME_W;
-  const CELL_W = Math.floor(AVAIL / 7);
+  const CELL_W = Math.max(55, Math.floor(AVAIL / 7));
   const ROW_H = 56;
 
   if (loading) return null;

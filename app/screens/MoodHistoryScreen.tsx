@@ -160,19 +160,27 @@ export default function MoodHistoryScreen() {
                   ))}
                 </View>
                 <View style={styles.heatmapGrid}>
-                  {heatmapCells.map((cell, i) => (
-                    <View
-                      key={i}
-                      style={[
-                        styles.heatmapCell,
-                        {
-                          backgroundColor: getHeatColor(cell.stress, cell.hasData),
-                          borderColor: cell.hasData ? 'transparent' : colors.borderSubtle,
-                          borderWidth: cell.hasData ? 0 : 1,
-                          borderStyle: cell.hasData ? 'solid' : 'dashed',
-                        },
-                      ]}
-                    />
+                  {Array.from({ length: 5 }).map((_, colIdx) => (
+                    <View key={colIdx} style={styles.heatmapColumn}>
+                      {Array.from({ length: 7 }).map((_, rowIdx) => {
+                        const cellIdx = colIdx * 7 + rowIdx;
+                        const cell = heatmapCells[cellIdx] || { stress: 0, hasData: false };
+                        return (
+                          <View
+                            key={rowIdx}
+                            style={[
+                              styles.heatmapCell,
+                              {
+                                backgroundColor: getHeatColor(cell.stress, cell.hasData),
+                                borderColor: cell.hasData ? 'transparent' : colors.borderSubtle,
+                                borderWidth: cell.hasData ? 0 : 1,
+                                borderStyle: cell.hasData ? 'solid' : 'dashed',
+                              },
+                            ]}
+                          />
+                        );
+                      })}
+                    </View>
                   ))}
                 </View>
               </View>
@@ -396,10 +404,11 @@ const styles = StyleSheet.create({
   miniTitle: { fontSize: 14 },
   miniLabel: { fontSize: 10, letterSpacing: 0.8, textTransform: 'uppercase' },
   // Heatmap
-  heatmapContainer: { flexDirection: 'row', gap: 6 },
-  heatmapDayLabels: { justifyContent: 'space-between', paddingVertical: 1 },
-  heatmapDayLabel: { fontSize: 9, fontWeight: '600', letterSpacing: 0.3, height: 24, lineHeight: 24 },
-  heatmapGrid: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
+  heatmapContainer: { flexDirection: 'row', gap: 6, alignItems: 'center' },
+  heatmapDayLabels: { justifyContent: 'space-between', height: 7 * 22 + 6 * 4 },
+  heatmapDayLabel: { fontSize: 9, fontWeight: '600', letterSpacing: 0.3, height: 22, lineHeight: 22 },
+  heatmapGrid: { flexDirection: 'row', gap: 4 },
+  heatmapColumn: { flexDirection: 'column', gap: 4 },
   heatmapCell: { width: 22, height: 22, borderRadius: 4 },
   toolRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
   toolIcon: { width: 36, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },

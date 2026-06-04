@@ -474,6 +474,7 @@ const chipStyles = StyleSheet.create({
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: Spacing.chipPaddingH,
     paddingVertical: Spacing.chipPaddingV,
     borderRadius: Radii.chip,

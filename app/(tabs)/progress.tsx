@@ -158,9 +158,9 @@ export default function ProgressScreen() {
         </View>
 
         {/* Performance by Subject & Stress Trend */}
-        <View style={{ flexDirection: 'row', gap: 12 }}>
+        <View style={{ flexDirection: SW < 365 ? 'column' : 'row', gap: 12 }}>
           {/* Performance Card */}
-          <View style={[st.card, { backgroundColor: colors.surface1, borderColor: colors.borderSubtle, flex: 2 }]}>
+          <View style={[st.card, { backgroundColor: colors.surface1, borderColor: colors.borderSubtle, flex: SW < 365 ? undefined : 2 }]}>
             <Text style={[st.cardTitle, { color: colors.textPrimary, fontFamily: Fonts.display }]}>Performance</Text>
             {states.length > 0 ? (
               states.map(s => {
@@ -189,7 +189,7 @@ export default function ProgressScreen() {
 
           {/* Stress Trend */}
           {stressTrend !== null && (
-            <View style={[st.card, { backgroundColor: colors.surface1, borderColor: colors.borderSubtle, flex: 1, justifyContent: 'space-between' }]}>
+            <View style={[st.card, { backgroundColor: colors.surface1, borderColor: colors.borderSubtle, flex: SW < 365 ? undefined : 1, justifyContent: 'space-between' }]}>
               <View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <Ionicons name="flash-outline" size={14} color={colors.accent} />

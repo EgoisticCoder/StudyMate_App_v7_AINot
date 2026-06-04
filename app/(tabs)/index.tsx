@@ -622,20 +622,20 @@ const st = StyleSheet.create({
   greetingSub: { fontSize: 14, lineHeight: 22, maxWidth: '95%' },
   
   // Stats
-  statsContainer: { paddingHorizontal: 20, marginTop: 12 },
-  statsRow: { flexDirection: 'row', gap: 8, justifyContent: 'space-between' },
+  statsContainer: { paddingHorizontal: SW < 365 ? 12 : 20, marginTop: 12 },
+  statsRow: { flexDirection: 'row', gap: SW < 365 ? 6 : 8, justifyContent: 'space-between' },
   statCard: {
     flex: 1,
-    padding: 16,
+    padding: SW < 365 ? 10 : 14,
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
     justifyContent: 'space-between',
-    minHeight: 88,
+    minHeight: SW < 365 ? 78 : 88,
   },
-  statHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
-  statLabel: { fontSize: 10, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.77 },
-  statValue: { fontSize: 22, fontWeight: '600' },
-  statUnit: { fontSize: 12, fontWeight: '500' },
+  statHeader: { flexDirection: 'row', alignItems: 'center', gap: SW < 365 ? 4 : 6, marginBottom: 4 },
+  statLabel: { fontSize: SW < 365 ? 8 : 10, fontWeight: '600', textTransform: 'uppercase', letterSpacing: SW < 365 ? 0.3 : 0.77 },
+  statValue: { fontSize: SW < 365 ? 18 : 22, fontWeight: '600' },
+  statUnit: { fontSize: SW < 365 ? 10 : 12, fontWeight: '500' },
 
   // Sections
   sectionContainer: { marginTop: 16 },
@@ -738,7 +738,7 @@ const st = StyleSheet.create({
     gap: 8,
   },
   studyToolCard: {
-    width: '48.5%',
+    width: (SW - 48) / 2,
     height: 88,
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 14,

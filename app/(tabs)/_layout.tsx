@@ -101,7 +101,10 @@ export default function TabLayout() {
       <Tabs.Screen
         name="leaderboard"
         options={{
-          href: null, // Hide this tab option since Compete screen is now navigated from Profile
+          title: tr('tab_compete'),
+          tabBarIcon: ({ focused, color }) => (
+            <TabIcon focused={focused} color={color} activeName="trophy" inactiveName="trophy-outline" />
+          ),
         }}
       />
       <Tabs.Screen

@@ -717,36 +717,40 @@ export default function FocusTimerScreen() {
           {(state === 'study' ? tr('study') : tr('break')).toUpperCase()}
         </Text>
 
-        <Animated.View style={{ opacity: glowAnim }}>
-          <Svg width={RING_SIZE} height={RING_SIZE}>
-            <Circle cx={RING_SIZE / 2} cy={RING_SIZE / 2} r={RING_RADIUS} stroke={colors.surface2} strokeWidth={RING_STROKE} fill="none" />
-            <Circle
-              cx={RING_SIZE / 2}
-              cy={RING_SIZE / 2}
-              r={RING_RADIUS}
-              stroke={isDistracted ? colors.danger : subjectColor}
-              strokeWidth={RING_STROKE}
-              fill="none"
-              strokeDasharray={RING_CIRCUMFERENCE}
-              strokeDashoffset={ringOffset}
-              strokeLinecap="round"
-              rotation="-90"
-              origin={`${RING_SIZE / 2}, ${RING_SIZE / 2}`}
-            />
-          </Svg>
-        </Animated.View>
+        <View style={styles.ringContainer}>
+          <Animated.View style={{ opacity: glowAnim }}>
+            <Svg width={RING_SIZE} height={RING_SIZE}>
+              <Circle cx={RING_SIZE / 2} cy={RING_SIZE / 2} r={RING_RADIUS} stroke={colors.surface2} strokeWidth={RING_STROKE} fill="none" />
+              <Circle
+                cx={RING_SIZE / 2}
+                cy={RING_SIZE / 2}
+                r={RING_RADIUS}
+                stroke={isDistracted ? colors.danger : subjectColor}
+                strokeWidth={RING_STROKE}
+                fill="none"
+                strokeDasharray={RING_CIRCUMFERENCE}
+                strokeDashoffset={ringOffset}
+                strokeLinecap="round"
+                rotation="-90"
+                origin={`${RING_SIZE / 2}, ${RING_SIZE / 2}`}
+              />
+            </Svg>
+          </Animated.View>
 
-        <Text 
-          style={[
-            styles.timerDisplay, 
-            { 
-              color: isDistracted ? colors.danger : colors.textPrimary,
-              fontFamily: Fonts.display,
-            }
-          ]}
-        >
-          {formatTime(timeLeft)}
-        </Text>
+          <View style={styles.timerTextContainer}>
+            <Text 
+              style={[
+                styles.timerDisplay, 
+                { 
+                  color: isDistracted ? colors.danger : colors.textPrimary,
+                  fontFamily: Fonts.display,
+                }
+              ]}
+            >
+              {formatTime(timeLeft)}
+            </Text>
+          </View>
+        </View>
 
         {state === 'study' && (
           <View style={[styles.orbCounter, { backgroundColor: colors.surface1, borderColor: colors.borderSubtle }]}>
@@ -934,12 +938,22 @@ const styles = StyleSheet.create({
   },
   subjectDisplay: { fontSize: 13, marginBottom: 4 },
   modeLabel: { fontSize: 13, letterSpacing: 1.5, marginBottom: 16 },
+  ringContainer: {
+    width: RING_SIZE,
+    height: RING_SIZE,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  timerTextContainer: {
+    position: 'absolute',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   timerDisplay: {
-    fontSize: 54,
+    fontSize: 48,
     fontWeight: '200',
     fontVariant: ['tabular-nums'],
-    marginTop: -RING_SIZE * 0.55,
-    marginBottom: 8,
   },
   orbCounter: {
     flexDirection: 'row',

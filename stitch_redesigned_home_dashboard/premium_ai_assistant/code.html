@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+<title>StudyAI - Ask AI</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "outline-variant": "#4d4354",
+            "surface-tint": "#ddb7ff",
+            "on-error": "#690005",
+            "on-error-container": "#ffdad6",
+            "inverse-primary": "#842bd2",
+            "secondary-fixed": "#71f8e4",
+            "surface-container-low": "#131b2e",
+            "secondary": "#4fdbc8",
+            "on-primary": "#490080",
+            "tertiary-fixed-dim": "#ffb0cd",
+            "primary-fixed": "#f0dbff",
+            "on-primary-fixed-variant": "#6900b3",
+            "on-secondary": "#003731",
+            "tertiary-fixed": "#ffd9e4",
+            "secondary-fixed-dim": "#4fdbc8",
+            "on-secondary-fixed": "#00201c",
+            "primary-container": "#b76dff",
+            "error-container": "#93000a",
+            "on-secondary-fixed-variant": "#005048",
+            "surface-container-highest": "#2d3449",
+            "background": "#0b1326",
+            "on-surface-variant": "#cfc2d6",
+            "surface-container-high": "#222a3d",
+            "surface-container-lowest": "#060e20",
+            "on-primary-fixed": "#2c0051",
+            "on-tertiary-fixed-variant": "#8c0053",
+            "on-surface": "#dae2fd",
+            "on-tertiary": "#640039",
+            "surface-variant": "#2d3449",
+            "on-background": "#dae2fd",
+            "error": "#ffb4ab",
+            "inverse-on-surface": "#283044",
+            "primary-fixed-dim": "#ddb7ff",
+            "surface-container": "#171f33",
+            "surface-dim": "#0b1326",
+            "on-primary-container": "#400071",
+            "inverse-surface": "#dae2fd",
+            "on-tertiary-container": "#570032",
+            "on-secondary-container": "#003f38",
+            "tertiary-container": "#f751a1",
+            "surface-bright": "#31394d",
+            "tertiary": "#ffb0cd",
+            "secondary-container": "#04b4a2",
+            "primary": "#ddb7ff",
+            "outline": "#988d9f",
+            "on-tertiary-fixed": "#3e0022",
+            "surface": "#0b1326"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "stack-sm": "8px",
+            "stack-lg": "32px",
+            "container-margin": "24px",
+            "gutter": "16px",
+            "section-gap": "48px",
+            "stack-md": "16px"
+          },
+          "fontFamily": {
+            "headline-xl-mobile": ["Plus Jakarta Sans"],
+            "label-sm": ["Inter"],
+            "body-sm": ["Inter"],
+            "headline-lg": ["Plus Jakarta Sans"],
+            "headline-xl": ["Plus Jakarta Sans"],
+            "label-lg": ["Inter"],
+            "body-lg": ["Inter"],
+            "headline-md": ["Plus Jakarta Sans"],
+            "body-md": ["Inter"]
+          },
+          "fontSize": {
+            "headline-xl-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "700"}],
+            "label-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "500"}],
+            "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+            "headline-lg": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+            "headline-xl": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+            "label-lg": ["14px", {"lineHeight": "20px", "letterSpacing": "0.02em", "fontWeight": "600"}],
+            "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+            "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+            "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+    .glass-card {
+      background: rgba(23, 31, 51, 0.4);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .glow-purple {
+      box-shadow: 0 0 20px rgba(221, 183, 255, 0.15);
+    }
+    .gradient-text {
+      background: linear-gradient(to right, #ddb7ff, #f751a1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hide-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .hide-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    .magic-glow-input:focus-within {
+      border-color: #ddb7ff;
+      box-shadow: 0 0 30px rgba(221, 183, 255, 0.2), inset 0 0 10px rgba(221, 183, 255, 0.1);
+    }
+    @keyframes float {
+      0% { transform: translateY(0px); }
+      50% { transform: translateY(-10px); }
+      100% { transform: translateY(0px); }
+    }
+    .floating-icon {
+      animation: float 4s ease-in-out infinite;
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface font-body-md overflow-x-hidden pb-32">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-surface/80 dark:bg-surface/80 backdrop-blur-3xl border-b border-white/10 shadow-[0_0_20px_rgba(221,183,255,0.05)]">
+<div class="flex justify-between items-center px-container-margin py-stack-md w-full max-w-7xl mx-auto">
+<div class="flex items-center gap-stack-sm">
+<span class="material-symbols-outlined text-primary" data-icon="auto_awesome" style="font-variation-settings: 'FILL' 1;">auto_awesome</span>
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile font-bold text-transparent bg-clip-text bg-gradient-to-r from-primary to-tertiary-container">StudyAI</h1>
+</div>
+<div class="w-10 h-10 rounded-full border border-primary/20 overflow-hidden active:scale-95 transition-transform duration-200">
+<img alt="User profile photo" class="w-full h-full object-cover" data-alt="A close-up portrait of a stylish person with a focused expression, softly lit by purple and teal ambient light to match a premium dark-mode educational technology interface. The background is a soft, deep-focus blur of a modern study space." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDVf5HP2VeteSN58k5aEwbW6Wks8phDhxq73iRoIiaSLuQYLhc5j_wUTQP5SRkoBc0z8K6G7Gnv6CNWHbjNQ0XN2m1GbUU_96EoFle7BWt2I7knXqQOX7bWEGDT--IQr3LLWL4Jh421ZrU2EHIQrpSA-RuF1zhJJ4GLbRny-qQhmXcJgbHfRv8fFR4RZXoUT1XdgtsYXszzAs6azmIwmdsY7xTsiIf1cZtGQceonY3FfQlhkHVmL_37Wgo7-g7Z0g0x0KZ96H1VHtI"/>
+</div>
+</div>
+</header>
+<main class="mt-24 px-container-margin max-w-2xl mx-auto flex flex-col gap-section-gap">
+<!-- Hero Section -->
+<section class="flex flex-col gap-stack-md text-center">
+<div class="inline-flex items-center justify-center self-center bg-primary-container/10 px-4 py-1.5 rounded-full border border-primary-container/20 mb-2">
+<span class="material-symbols-outlined text-[18px] text-primary mr-2" data-icon="sparkles" style="font-variation-settings: 'FILL' 1;">colors_spark</span>
+<span class="font-label-sm text-label-sm text-primary uppercase tracking-wider">Neural Engine v4.0</span>
+</div>
+<h2 class="font-headline-xl-mobile text-headline-xl-mobile">What can I help you <span class="gradient-text">master today?</span></h2>
+<p class="text-on-surface-variant font-body-md">Get instant explanations, solve complex doubts, or explore new topics with AI.</p>
+</section>
+<!-- Main AI Input Interface -->
+<section class="flex flex-col gap-stack-lg">
+<!-- Glassmorphic Input Area -->
+<div class="glass-card magic-glow-input rounded-[32px] p-stack-md transition-all duration-500 group">
+<div class="relative flex flex-col">
+<textarea class="w-full bg-transparent border-none focus:ring-0 text-on-surface font-body-lg min-h-[140px] resize-none placeholder:text-on-surface-variant/40" placeholder="e.g., 'Explain Quantum Entanglement' or 'How do I solve quadratic equations?'"></textarea>
+<div class="flex flex-wrap items-center justify-between mt-stack-md pt-stack-md border-t border-white/5 gap-stack-md">
+<!-- Explain Mode Toggle -->
+<div class="flex items-center gap-stack-md">
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" type="checkbox" value=""/>
+<div class="w-11 h-6 bg-surface-container-highest peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-container"></div>
+<span class="ms-3 font-label-lg text-label-lg text-on-surface-variant group-hover:text-primary transition-colors">ELI12 Mode</span>
+</label>
+<span class="text-xs font-label-sm px-2 py-0.5 rounded bg-tertiary-container/20 text-tertiary-fixed border border-tertiary-container/30">PREMIUM</span>
+</div>
+<!-- Action Button -->
+<button class="bg-gradient-to-r from-primary to-tertiary-container text-on-primary-container font-label-lg text-label-lg px-8 py-3 rounded-full flex items-center gap-2 shadow-[0_0_15px_rgba(221,183,255,0.3)] active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[20px]" data-icon="bolt" style="font-variation-settings: 'FILL' 1;">bolt</span>
+              Ask StudyAI
+            </button>
+</div>
+</div>
+</div>
+<!-- Subject Selectors -->
+<div class="flex flex-col gap-stack-md">
+<h3 class="font-label-lg text-label-lg text-on-surface-variant flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]" data-icon="category">category</span>
+          SELECT SUBJECT (OPTIONAL)
+        </h3>
+<div class="flex gap-stack-sm overflow-x-auto hide-scrollbar pb-2 -mx-2 px-2">
+<!-- Active State Item -->
+<button class="flex-shrink-0 px-5 py-2.5 rounded-full glass-card border-primary text-primary shadow-[0_0_15px_rgba(221,183,255,0.1)] flex items-center gap-2 bg-primary/10">
+<span class="material-symbols-outlined text-[18px]" data-icon="functions">functions</span>
+<span class="font-label-lg text-label-lg">Mathematics</span>
+</button>
+<button class="flex-shrink-0 px-5 py-2.5 rounded-full glass-card border-white/10 text-on-surface-variant hover:border-primary/50 hover:text-on-surface transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]" data-icon="science">science</span>
+<span class="font-label-lg text-label-lg">Physics</span>
+</button>
+<button class="flex-shrink-0 px-5 py-2.5 rounded-full glass-card border-white/10 text-on-surface-variant hover:border-primary/50 hover:text-on-surface transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]" data-icon="biotech">biotech</span>
+<span class="font-label-lg text-label-lg">Biology</span>
+</button>
+<button class="flex-shrink-0 px-5 py-2.5 rounded-full glass-card border-white/10 text-on-surface-variant hover:border-primary/50 hover:text-on-surface transition-all flex items-center gap-2">
+<span class="material-symbols-outlined text-[18px]" data-icon="history">history</span>
+<span class="font-label-lg text-label-lg">History</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Quick Tools Bento Section -->
+<section class="flex flex-col gap-stack-md">
+<h3 class="font-label-lg text-label-lg text-on-surface-variant">RECENT INSIGHTS</h3>
+<div class="grid grid-cols-2 gap-stack-md">
+<!-- Card 1 -->
+<div class="glass-card rounded-[24px] p-stack-md flex flex-col gap-stack-sm relative overflow-hidden group">
+<div class="absolute -right-4 -top-4 w-20 h-20 bg-primary/10 blur-2xl group-hover:bg-primary/20 transition-all"></div>
+<span class="material-symbols-outlined text-primary text-[32px] floating-icon" data-icon="menu_book">menu_book</span>
+<div>
+<h4 class="font-headline-md-mobile text-headline-md-mobile">Study Plan</h4>
+<p class="text-on-surface-variant text-label-sm font-label-sm mt-1">Personalized path for Calculus</p>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="glass-card rounded-[24px] p-stack-md flex flex-col gap-stack-sm relative overflow-hidden group">
+<div class="absolute -right-4 -top-4 w-20 h-20 bg-secondary/10 blur-2xl group-hover:bg-secondary/20 transition-all"></div>
+<span class="material-symbols-outlined text-secondary text-[32px] floating-icon" data-icon="quiz" style="animation-delay: 1s;">quiz</span>
+<div>
+<h4 class="font-headline-md-mobile text-headline-md-mobile">AI Quiz</h4>
+<p class="text-on-surface-variant text-label-sm font-label-sm mt-1">Generated from your notes</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Wellness Banner (Transposed from image context) -->
+<div class="glass-card rounded-[24px] p-stack-md border-l-4 border-l-secondary flex items-center justify-between">
+<div class="flex items-center gap-stack-md">
+<div class="w-12 h-12 rounded-2xl bg-secondary/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary" data-icon="temp_preferences_custom">temp_preferences_custom</span>
+</div>
+<div>
+<h4 class="font-headline-md-mobile text-headline-md-mobile">Focus Score</h4>
+<p class="text-on-surface-variant text-label-sm font-label-sm">High mental energy detected</p>
+</div>
+</div>
+<div class="text-secondary font-headline-md">88%</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 pb-safe bg-surface/80 dark:bg-surface/80 backdrop-blur-3xl border-t border-white/10 shadow-[0_-10px_40px_rgba(221,183,255,0.1)] rounded-t-xl">
+<a class="flex flex-col items-center justify-center text-on-surface-variant/60 dark:text-on-surface-variant/60 hover:text-primary transition-colors active:scale-90 duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="font-label-sm text-label-sm">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant/60 dark:text-on-surface-variant/60 hover:text-primary transition-colors active:scale-90 duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="menu_book">menu_book</span>
+<span class="font-label-sm text-label-sm">Learn</span>
+</a>
+<a class="flex flex-col items-center justify-center text-primary dark:text-secondary-fixed shadow-[0_0_15px_rgba(79,219,200,0.3)] bg-secondary-container/20 rounded-xl px-3 py-1 active:scale-90 transition-all duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="psychology" style="font-variation-settings: 'FILL' 1;">psychology</span>
+<span class="font-label-sm text-label-sm">Quiz</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant/60 dark:text-on-surface-variant/60 hover:text-primary transition-colors active:scale-90 duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="insights">insights</span>
+<span class="font-label-sm text-label-sm">Progress</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant/60 dark:text-on-surface-variant/60 hover:text-primary transition-colors active:scale-90 duration-300" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-label-sm text-label-sm">Profile</span>
+</a>
+</nav>
+<!-- Interactive Magic Effect (Inline JS) -->
+<script>
+    document.addEventListener('mousemove', (e) => {
+      const x = e.clientX;
+      const y = e.clientY;
+      const glow = document.createElement('div');
+      glow.className = 'fixed pointer-events-none w-64 h-64 bg-primary/5 rounded-full blur-[100px] z-[-1]';
+      glow.style.left = `${x - 128}px`;
+      glow.style.top = `${y - 128}px`;
+      document.body.appendChild(glow);
+      setTimeout(() => glow.remove(), 2000);
+    });
+
+    // Handle Chip selection
+    const chips = document.querySelectorAll('.flex-shrink-0');
+    chips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        chips.forEach(c => {
+          c.classList.remove('border-primary', 'text-primary', 'bg-primary/10');
+          c.classList.add('border-white/10', 'text-on-surface-variant');
+        });
+        chip.classList.add('border-primary', 'text-primary', 'bg-primary/10');
+        chip.classList.remove('border-white/10', 'text-on-surface-variant');
+      });
+    });
+  </script>
+</body></html>

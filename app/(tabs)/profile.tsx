@@ -2,8 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, TextInput, StyleSheet,
-  Alert, Platform, ActivityIndicator,
+  Alert, Platform, ActivityIndicator, Image
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, useAuth, useLanguage } from '../../lib/context';
@@ -38,6 +40,7 @@ export default function ProfileScreen() {
   const [neo4jPass, setNeo4jPass] = useState('');
   const [tavilyKey, setTavilyKey] = useState('');
   const [saving, setSaving] = useState(false);
+  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
 
   // Parent PIN states
   const [hasPinSet, setHasPinSet] = useState(false);
@@ -130,6 +133,15 @@ export default function ProfileScreen() {
           const gs = await getGamificationStats(studentId);
           setGStats(gs);
         } catch {}
+
+        // Load profile photo
+        if (Platform.OS === 'web') {
+          setProfilePhoto(localStorage.getItem(`profile_photo_${studentId}`) || null);
+        } else {
+          const SecureStore = require('expo-secure-store');
+          const photo = await SecureStore.getItemAsync(`profile_photo_${studentId}`);
+          setProfilePhoto(photo || null);
+        }
       } catch (err) {
         console.error('Profile load error:', err);
       } finally {
@@ -255,11 +267,43 @@ export default function ProfileScreen() {
       <ScrollView style={[s.container, { backgroundColor: colors.background }]} contentContainerStyle={s.content} showsVerticalScrollIndicator={false}>
         {/* Flat Header — No linear gradient, radial-tinted avatar */}
         <View style={[s.hero, { backgroundColor: colors.background }]}>
-          <View style={[s.avatar, { backgroundColor: colors.accent + '33', borderWidth: StyleSheet.hairlineWidth, borderColor: colors.accentBorder }]}>
-            <Text style={[s.avatarText, { color: colors.accent, fontFamily: Fonts.display }]}>
-              {profile?.name?.[0]?.toUpperCase() || '?'}
-            </Text>
-          </View>
+          <TouchableOpacity 
+            onPress={async () => {
+              const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [1, 1],
+                quality: 0.5,
+              });
+              if (!result.canceled && result.assets[0]) {
+                const manipResult = await ImageManipulator.manipulateAsync(
+                  result.assets[0].uri,
+                  [{ resize: { width: 300, height: 300 } }],
+                  { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+                );
+                const uri = manipResult.uri;
+                setProfilePhoto(uri);
+                if (Platform.OS === 'web') {
+                  localStorage.setItem(`profile_photo_${studentId}`, uri);
+                } else {
+                  const SecureStore = require('expo-secure-store');
+                  await SecureStore.setItemAsync(`profile_photo_${studentId}`, uri);
+                }
+              }
+            }}
+            style={[s.avatar, { backgroundColor: colors.accent + '33', borderWidth: StyleSheet.hairlineWidth, borderColor: colors.accentBorder, overflow: 'hidden' }]}
+          >
+            {profilePhoto ? (
+              <Image source={{ uri: profilePhoto }} style={{ width: '100%', height: '100%' }} />
+            ) : (
+              <Text style={[s.avatarText, { color: colors.accent, fontFamily: Fonts.display }]}>
+                {profile?.name?.[0]?.toUpperCase() || '?'}
+              </Text>
+            )}
+            <View style={{ position: 'absolute', bottom: 0, width: '100%', height: 20, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="camera" size={12} color="#fff" />
+            </View>
+          </TouchableOpacity>
           <Text style={[s.heroName, { color: colors.textPrimary, fontFamily: Fonts.display }]}>
             {profile?.name || tr('student')}
           </Text>
@@ -282,19 +326,47 @@ export default function ProfileScreen() {
         </View>
 
         <View style={s.body}>
-          {/* Goals & Motivation Section */}
-          <SectionHeader title="GOALS & MOTIVATION" />
+          {/* Edit Profile Section */}
+          <SectionHeader title="PROFILE DETAILS" />
           <SurfaceCard style={{ padding: 0, overflow: 'hidden' }}>
-            <SettingRow icon="person-outline" label="Goals & Motivation" onPress={() => setIsEditing(!isEditing)} />
+            <SettingRow icon="person-outline" label="Edit Profile & Goals" onPress={() => setIsEditing(!isEditing)} />
             {isEditing && profile && (
               <View style={{ padding: 16, paddingTop: 12 }}>
-                <Text style={[s.inputLabel, { color: colors.textSecondary, fontFamily: Fonts.bodyMedium }]}>Ambitions</Text>
+                <Text style={[s.inputLabel, { color: colors.textSecondary, fontFamily: Fonts.bodyMedium }]}>Name</Text>
+                <TextInput style={[s.input, { color: colors.textPrimary, borderColor: colors.borderSubtle, backgroundColor: colors.surface2, fontFamily: Fonts.body }]} value={profile.name} onChangeText={t => setProfile({...profile, name: t})} placeholderTextColor={colors.textTertiary} />
+                
+                <Text style={[s.inputLabel, { color: colors.textSecondary, fontFamily: Fonts.bodyMedium }]}>Email</Text>
+                <TextInput style={[s.input, { color: colors.textPrimary, borderColor: colors.borderSubtle, backgroundColor: colors.surface2, fontFamily: Fonts.body }]} value={profile.email || ''} onChangeText={t => setProfile({...profile, email: t})} placeholderTextColor={colors.textTertiary} keyboardType="email-address" autoCapitalize="none" />
+                
+                <View style={{ flexDirection: 'row', gap: 12 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[s.inputLabel, { color: colors.textSecondary, fontFamily: Fonts.bodyMedium }]}>Class</Text>
+                    <TextInput style={[s.input, { color: colors.textPrimary, borderColor: colors.borderSubtle, backgroundColor: colors.surface2, fontFamily: Fonts.body }]} value={profile.class.toString()} onChangeText={t => setProfile({...profile, class: parseInt(t) || profile.class})} placeholderTextColor={colors.textTertiary} keyboardType="number-pad" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[s.inputLabel, { color: colors.textSecondary, fontFamily: Fonts.bodyMedium }]}>Board</Text>
+                    <TextInput style={[s.input, { color: colors.textPrimary, borderColor: colors.borderSubtle, backgroundColor: colors.surface2, fontFamily: Fonts.body }]} value={profile.board} onChangeText={t => setProfile({...profile, board: t.toUpperCase()})} placeholderTextColor={colors.textTertiary} autoCapitalize="characters" />
+                  </View>
+                </View>
+
+                <Text style={[s.inputLabel, { color: colors.textSecondary, fontFamily: Fonts.bodyMedium }]}>Ambitions (e.g. JEE, UPSC, Developer)</Text>
                 <TextInput style={[s.input, { color: colors.textPrimary, borderColor: colors.borderSubtle, backgroundColor: colors.surface2, fontFamily: Fonts.body }]} defaultValue={profile.ambitions.join(', ')} onChangeText={t => setProfile({...profile, ambitions: t.split(',').map(x => x.trim())})} placeholderTextColor={colors.textTertiary} />
-                <Text style={[s.inputLabel, { color: colors.textSecondary, fontFamily: Fonts.bodyMedium }]}>Motives</Text>
+                
+                <Text style={[s.inputLabel, { color: colors.textSecondary, fontFamily: Fonts.bodyMedium }]}>Motives (e.g. Make parents proud, Financial freedom)</Text>
                 <TextInput style={[s.input, { color: colors.textPrimary, borderColor: colors.borderSubtle, backgroundColor: colors.surface2, fontFamily: Fonts.body }]} defaultValue={profile.motives.join(', ')} onChangeText={t => setProfile({...profile, motives: t.split(',').map(x => x.trim())})} placeholderTextColor={colors.textTertiary} />
-                <TouchableOpacity style={[s.saveBtn, { backgroundColor: colors.accent }]} onPress={async () => {
+                
+                <TouchableOpacity style={[s.saveBtn, { backgroundColor: colors.accent, marginTop: 16 }]} onPress={async () => {
                   setIsEditing(false);
-                  await writeQuery(`MATCH (s:Student {id: $studentId}) SET s.ambitions = $ambitions, s.motives = $motives`, { studentId, ambitions: profile.ambitions, motives: profile.motives });
+                  await writeQuery(`MATCH (s:Student {id: $studentId}) SET s.name = $name, s.email = $email, s.class = toInteger($classNum), s.board = $board, s.ambitions = $ambitions, s.motives = $motives`, { 
+                    studentId, 
+                    name: profile.name,
+                    email: profile.email || '',
+                    classNum: profile.class,
+                    board: profile.board,
+                    ambitions: profile.ambitions, 
+                    motives: profile.motives 
+                  });
+                  Alert.alert('Success', 'Profile updated successfully!');
                 }}>
                   <Text style={{ color: colors.textInverse, fontFamily: Fonts.display, fontSize: 14 }}>Save Changes</Text>
                 </TouchableOpacity>

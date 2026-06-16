@@ -18,6 +18,7 @@ import { getChaptersForSubject } from '../../constants/chapters';
 import { Fonts } from '../../constants/fonts';
 import { Radii, Spacing } from '../../constants/colors';
 import { Chip, PrimaryButton, AnimatedScreenWrapper, SectionLabel } from '../../components/ui/premium';
+import { TranscriptionOverlay } from '../../components/TranscriptionOverlay';
 import { v4 as uuidv4 } from 'uuid';
 
 export default function NotesUploadScreen() {
@@ -192,7 +193,10 @@ Return ONLY the corrected, revised notes transcription text. Do not output any c
   };
 
   const handleSaveNote = async () => {
-    if (!transcription.trim() || !studentId) return;
+    if ((!transcription.trim() && !image) || !studentId) {
+      Alert.alert('Incomplete', 'Please provide either text notes or an image.');
+      return;
+    }
     setLoading(true);
     setLoadingText('Saving note...');
     
@@ -329,35 +333,43 @@ Return ONLY the corrected, revised notes transcription text. Do not output any c
               </View>
             ) : (
               <View style={{ gap: 12 }}>
-                <TouchableOpacity 
-                  style={[styles.pickArea, { borderColor: colors.borderMedium, backgroundColor: colors.surface1 }]} 
-                  onPress={() => handlePickImage(false)}
-                >
-                  <Ionicons name="images-outline" size={40} color={colors.textSecondary} />
-                  <Text style={[{ color: colors.textSecondary, fontFamily: Fonts.bodyMedium, marginTop: 12 }]}>
-                    Upload from Gallery
-                  </Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={[styles.pickArea, { borderColor: colors.borderMedium, backgroundColor: colors.surface1 }]} 
-                  onPress={() => handlePickImage(true)}
-                >
-                  <Ionicons name="camera-outline" size={40} color={colors.textSecondary} />
-                  <Text style={[{ color: colors.textSecondary, fontFamily: Fonts.bodyMedium, marginTop: 12 }]}>
-                    Take Photo with Camera
-                  </Text>
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', gap: 12 }}>
+                  <TouchableOpacity 
+                    style={[styles.pickArea, { flex: 1, borderColor: colors.borderMedium, backgroundColor: colors.surface1, padding: 24 }]} 
+                    onPress={() => handlePickImage(false)}
+                  >
+                    <Ionicons name="images-outline" size={32} color={colors.textSecondary} />
+                    <Text style={[{ color: colors.textSecondary, fontFamily: Fonts.bodyMedium, marginTop: 12, textAlign: 'center' }]}>
+                      Gallery
+                    </Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={[styles.pickArea, { flex: 1, borderColor: colors.borderMedium, backgroundColor: colors.surface1, padding: 24 }]} 
+                    onPress={() => handlePickImage(true)}
+                  >
+                    <Ionicons name="camera-outline" size={32} color={colors.textSecondary} />
+                    <Text style={[{ color: colors.textSecondary, fontFamily: Fonts.bodyMedium, marginTop: 12, textAlign: 'center' }]}>
+                      Camera
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={[styles.divider, { backgroundColor: colors.borderSubtle, marginVertical: 16 }]} />
 
                 <TouchableOpacity
-                  style={[styles.skipBtn, { borderColor: colors.borderSubtle }]}
+                  style={[styles.pickArea, { borderColor: colors.accent + '50', backgroundColor: colors.accentMuted, padding: 28 }]}
                   onPress={() => {
                     setTranscription('');
                     setStep(3);
                   }}
                 >
-                  <Text style={{ color: colors.textSecondary, fontFamily: Fonts.bodyMedium }}>
-                    Skip Image & Type Notes Directly
+                  <Ionicons name="document-text-outline" size={36} color={colors.accent} />
+                  <Text style={{ color: colors.accent, fontFamily: Fonts.bodyMedium, marginTop: 12, fontSize: 16 }}>
+                    Type Notes Manually
+                  </Text>
+                  <Text style={{ color: colors.textSecondary, fontFamily: Fonts.body, marginTop: 6, fontSize: 13, textAlign: 'center' }}>
+                    Skip AI transcription and write your notes yourself
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -378,6 +390,18 @@ Return ONLY the corrected, revised notes transcription text. Do not output any c
                   onPress={handleRunOCR}
                 />
                 <TouchableOpacity
+                  style={[styles.skipBtn, { borderColor: colors.accent, backgroundColor: colors.accent + '15', height: 52, borderRadius: Radii.button }]}
+                  onPress={handleSaveNote}
+                  disabled={loading}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Ionicons name="save-outline" size={18} color={colors.accent} />
+                    <Text style={{ color: colors.accent, fontFamily: Fonts.bodyMedium }}>
+                      Save Image Only (No OCR)
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+                <TouchableOpacity
                   style={[styles.skipBtn, { borderColor: colors.borderSubtle, height: 52, borderRadius: Radii.button }]}
                   onPress={() => {
                     setTranscription('');
@@ -385,7 +409,7 @@ Return ONLY the corrected, revised notes transcription text. Do not output any c
                   }}
                 >
                   <Text style={{ color: colors.textSecondary, fontFamily: Fonts.bodyMedium }}>
-                    Skip OCR, Edit Directly
+                    Skip OCR, Type Text Instead
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -453,7 +477,7 @@ Return ONLY the corrected, revised notes transcription text. Do not output any c
 
             <PrimaryButton
               label="Save Study Note"
-              disabled={!transcription.trim() || loading}
+              disabled={(!transcription.trim() && !image) || loading}
               onPress={handleSaveNote}
             />
           </View>
@@ -510,6 +534,7 @@ Return ONLY the corrected, revised notes transcription text. Do not output any c
           </>
         )}
       </View>
+      <TranscriptionOverlay visible={voiceProcessing} statusText="Applying voice correction..." />
     </AnimatedScreenWrapper>
   );
 }
@@ -619,4 +644,5 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 15,
   },
+  divider: { height: 1, marginHorizontal: 16 },
 });

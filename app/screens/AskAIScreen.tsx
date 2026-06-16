@@ -38,6 +38,7 @@ import {
   transcribeAudio, synthesizeSpeech, playAudioBase64,
   stopCurrentAudio, getStoredLanguageCode, showVoiceError,
 } from '../../lib/sarvam';
+import { TranscriptionOverlay } from '../../components/TranscriptionOverlay';
 
 type Tab = 'type' | 'photograph' | 'resources';
 
@@ -801,6 +802,7 @@ ${eli5 ? '\nELI5 mode on — keep language friendly and concrete.' : ''}`;
           </Animated.View>
         ) : null}
       </Animated.ScrollView>
+      <TranscriptionOverlay visible={sttLoading} />
     </KeyboardAvoidingView>
   );
 }

@@ -83,7 +83,7 @@ type ProxyChatPayload = {
 
 async function callViaProxy(payload: ProxyChatPayload): Promise<string> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  const timeoutId = setTimeout(() => controller.abort(), 45000);
 
   try {
     const response = await fetch('/api/ai', {
@@ -135,7 +135,7 @@ async function callDirect(
   temp: number
 ): Promise<string> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
 
   try {
     const response = await fetch(config.url, {

@@ -14,6 +14,7 @@ import { transcribeAudio, synthesizeSpeech, playAudioBase64, stopCurrentAudio, i
 import { Fonts } from '../../constants/fonts';
 import { Radii, Spacing } from '../../constants/colors';
 import { AnimatedScreenWrapper, SurfaceCard } from '../../components/ui/premium';
+import { TranscriptionOverlay } from '../../components/TranscriptionOverlay';
 
 interface Message {
   id: string;
@@ -488,6 +489,7 @@ Instructions:
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+      <TranscriptionOverlay visible={sttLoading} />
     </AnimatedScreenWrapper>
   );
 }

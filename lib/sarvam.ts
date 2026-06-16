@@ -96,22 +96,35 @@ class WebAudioSound {
 // ── API Call Helpers ───────────────────────────────
 
 async function callVoiceProxy(payload: Record<string, unknown>): Promise<any> {
-  const response = await fetch('/api/voice', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  const text = await response.text();
-  let data;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60000);
+
   try {
-    data = JSON.parse(text);
-  } catch {
-    throw new Error(response.ok ? 'Invalid response from voice API' : `Voice API error (${response.status})`);
+    const response = await fetch('/api/voice', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    const text = await response.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw new Error(response.ok ? 'Invalid response from voice API' : `Voice API error (${response.status})`);
+    }
+    if (!response.ok) {
+      throw new Error(data.error || `Voice API error (${response.status})`);
+    }
+    return data;
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error('Voice API timed out — please try again.');
+    }
+    throw error;
   }
-  if (!response.ok) {
-    throw new Error(data.error || `Voice API error (${response.status})`);
-  }
-  return data;
 }
 
 async function callSarvamDirect(
@@ -199,44 +212,55 @@ export async function transcribeAudio(audioUri: string): Promise<STTResult> {
   const apiKey = await getSarvamKey();
   if (!apiKey) throw new Error('Sarvam API key not configured');
 
-  // Use proxy-style call with base64 for consistency
-  const response = await fetch(`${SARVAM_API_URL}/speech-to-text`, {
-    method: 'POST',
-    headers: {
-      'api-subscription-key': apiKey,
-      'Content-Type': 'multipart/form-data',
-    },
-    body: (() => {
-      const formData = new FormData();
-      formData.append('file', {
-        uri: audioUri,
-        type: 'audio/wav',
-        name: 'recording.wav',
-      } as any);
-      formData.append('model', 'saaras:v3');
-      formData.append('mode', 'transcribe');
-      return formData;
-    })(),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60000);
 
-  const responseText = await response.text();
-  let data;
   try {
-    data = JSON.parse(responseText);
-  } catch {
-    throw new Error(`STT failed: ${responseText.slice(0, 200)}`);
-  }
+    const formData = new FormData();
+    formData.append('file', {
+      uri: audioUri,
+      type: 'audio/wav',
+      name: 'recording.wav',
+    } as any);
+    formData.append('model', 'saaras:v3');
+    formData.append('mode', 'transcribe');
 
-  if (!response.ok) {
-    throw new Error(data.error || data.message || `STT failed (${response.status})`);
-  }
+    const response = await fetch(`${SARVAM_API_URL}/speech-to-text`, {
+      method: 'POST',
+      headers: {
+        'api-subscription-key': apiKey,
+      },
+      body: formData,
+      signal: controller.signal,
+    });
 
-  const langCode = data.language_code || 'en-IN';
-  return {
-    text: data.transcript || data.text || '',
-    language: langCode,
-    languageName: SARVAM_LANG_TO_NAME[langCode] || 'English',
-  };
+    clearTimeout(timeoutId);
+
+    const responseText = await response.text();
+    let data;
+    try {
+      data = JSON.parse(responseText);
+    } catch {
+      throw new Error(`STT failed: ${responseText.slice(0, 200)}`);
+    }
+
+    if (!response.ok) {
+      throw new Error(data.error || data.message || `STT failed (${response.status})`);
+    }
+
+    const langCode = data.language_code || 'en-IN';
+    return {
+      text: data.transcript || data.text || '',
+      language: langCode,
+      languageName: SARVAM_LANG_TO_NAME[langCode] || 'English',
+    };
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error('Transcription timed out — please try a shorter recording.');
+    }
+    throw error;
+  }
 }
 
 // ── TTS (Text-to-Speech) ──────────────────────────

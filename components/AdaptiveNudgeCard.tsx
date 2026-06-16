@@ -1,8 +1,8 @@
 // Adaptive nudge card — AI-generated daily nudge from buildStudentContext()
-// Redesigned: accent-muted bg, accent-border, borderRadius 14
+// Redesigned: streaming text animation, better error handling, accent-muted bg
 
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Easing } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, useAuth } from '../lib/context';
 import { buildStudentContext } from '../lib/adaptiveEngine';
@@ -15,13 +15,54 @@ export function AdaptiveNudgeCard() {
   const { colors } = useTheme();
   const { studentId } = useAuth();
   const [nudge, setNudge] = useState<string | null>(null);
+  const [displayedText, setDisplayedText] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  
+  // Shimmer animation for loading
+  const shimmerAnim = useRef(new Animated.Value(0)).current;
+  const fadeIn = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (loading) {
+      const loop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(shimmerAnim, { toValue: 1, duration: 1200, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+          Animated.timing(shimmerAnim, { toValue: 0, duration: 1200, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        ])
+      );
+      loop.start();
+      return () => loop.stop();
+    }
+  }, [loading]);
+
+  // Streaming text effect — reveal characters progressively
+  useEffect(() => {
+    if (!nudge) return;
+    setDisplayedText('');
+    fadeIn.setValue(0);
+    Animated.timing(fadeIn, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+    
+    let idx = 0;
+    const interval = setInterval(() => {
+      idx++;
+      if (idx <= nudge.length) {
+        setDisplayedText(nudge.slice(0, idx));
+      } else {
+        clearInterval(interval);
+      }
+    }, 18); // ~55 chars/sec for smooth typing feel
+
+    return () => clearInterval(interval);
+  }, [nudge]);
 
   const fetchNudge = async () => {
     if (!studentId) return;
     setLoading(true);
     setError(false);
+    setNudge(null);
+    setDisplayedText('');
     try {
       const context = await buildStudentContext(studentId);
       const response = await callGroq(
@@ -53,10 +94,54 @@ export function AdaptiveNudgeCard() {
 
   if (loading) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.accentMuted, borderColor: colors.accentBorder }]}>
-        <LoadingSkeleton width="80%" height={16} />
-        <LoadingSkeleton width="100%" height={14} style={{ marginTop: 10 }} />
-      </View>
+      <Animated.View
+        style={[
+          styles.container,
+          {
+            backgroundColor: colors.accentMuted,
+            borderColor: colors.accentBorder,
+            opacity: shimmerAnim.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] }),
+          },
+        ]}
+      >
+        <View style={styles.header}>
+          <Ionicons name="sparkles" size={18} color={colors.accent} />
+          <Text style={[styles.headerText, { color: colors.accent, fontFamily: Fonts.bodyMedium }]}>
+            AI Nudge
+          </Text>
+          <View style={styles.loadingDots}>
+            <Animated.View
+              style={[
+                styles.dot,
+                {
+                  backgroundColor: colors.accent,
+                  opacity: shimmerAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.3, 1, 0.3] }),
+                },
+              ]}
+            />
+            <Animated.View
+              style={[
+                styles.dot,
+                {
+                  backgroundColor: colors.accent,
+                  opacity: shimmerAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.6, 0.3, 1] }),
+                },
+              ]}
+            />
+            <Animated.View
+              style={[
+                styles.dot,
+                {
+                  backgroundColor: colors.accent,
+                  opacity: shimmerAnim.interpolate({ inputRange: [0, 0.5, 1], outputRange: [1, 0.6, 0.3] }),
+                },
+              ]}
+            />
+          </View>
+        </View>
+        <LoadingSkeleton width="90%" height={14} />
+        <LoadingSkeleton width="70%" height={14} style={{ marginTop: 8 }} />
+      </Animated.View>
     );
   }
 
@@ -64,12 +149,12 @@ export function AdaptiveNudgeCard() {
     return (
       <TouchableOpacity
         style={[styles.container, { backgroundColor: colors.surface1, borderColor: colors.borderSubtle }]}
-        onPress={fetchNudge}
+        onPress={() => { setRetryCount(c => c + 1); fetchNudge(); }}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <View style={styles.errorRow}>
           <Ionicons name="refresh-outline" size={20} color={colors.textTertiary} />
           <Text style={[styles.errorText, { color: colors.textTertiary, fontFamily: Fonts.body }]}>
-            AI is taking too long — tap to retry
+            {retryCount > 1 ? 'AI is still loading — tap to try again' : 'AI is taking too long — tap to retry'}
           </Text>
         </View>
       </TouchableOpacity>
@@ -77,7 +162,16 @@ export function AdaptiveNudgeCard() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.accentMuted, borderColor: colors.accentBorder }]}>
+    <Animated.View
+      style={[
+        styles.container,
+        {
+          backgroundColor: colors.accentMuted,
+          borderColor: colors.accentBorder,
+          opacity: fadeIn,
+        },
+      ]}
+    >
       <View style={styles.header}>
         <Ionicons name="sparkles" size={18} color={colors.accent} />
         <Text style={[styles.headerText, { color: colors.accent, fontFamily: Fonts.bodyMedium }]}>
@@ -85,9 +179,12 @@ export function AdaptiveNudgeCard() {
         </Text>
       </View>
       <Text style={[styles.nudgeText, { color: colors.textPrimary, fontFamily: Fonts.body }]}>
-        {nudge}
+        {displayedText}
+        {displayedText.length < (nudge?.length || 0) && (
+          <Text style={{ color: colors.accent }}>▍</Text>
+        )}
       </Text>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -109,13 +206,28 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 0.5,
   },
+  loadingDots: {
+    flexDirection: 'row',
+    gap: 4,
+    marginLeft: 'auto',
+  },
+  dot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+  },
   nudgeText: {
     fontSize: 14,
     lineHeight: 22.4,
     fontWeight: '400',
+  },
+  errorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   errorText: {
     fontSize: 14,
     marginLeft: 8,
   },
 });
+

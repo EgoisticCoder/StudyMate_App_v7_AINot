@@ -14,9 +14,9 @@ interface MoodCheckInProps { onComplete: (quote: string) => void; }
 const MOOD_OPTIONS = [
   { level: 1, icon: 'happy-outline' as const, label: 'Great', color: '#059669' },
   { level: 2, icon: 'thumbs-up-outline' as const, label: 'Good', color: '#34D399' },
-  { level: 3, icon: 'remove-circle-outline' as const, label: 'Okay', color: '#F59E0B' },
+  { level: 3, icon: 'ellipse-outline' as const, label: 'Okay', color: '#F59E0B' },
   { level: 4, icon: 'sad-outline' as const, label: 'Stressed', color: '#F97316' },
-  { level: 5, icon: 'alert-circle-outline' as const, label: 'Overwhelmed', color: '#EF4444' },
+  { level: 5, icon: 'warning-outline' as const, label: 'Overwhelmed', color: '#EF4444' },
 ];
 
 const SLEEP_OPTIONS = [

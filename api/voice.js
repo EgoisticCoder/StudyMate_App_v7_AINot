@@ -46,7 +46,7 @@ function getSarvamApiKey(clientKey) {
     (process.env.EXPO_PUBLIC_SARVAM_API_KEY || '').trim();
 }
 
-async function fetchWithTimeout(url, options, timeoutMs = 15000) {
+async function fetchWithTimeout(url, options, timeoutMs = 30000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -57,7 +57,7 @@ async function fetchWithTimeout(url, options, timeoutMs = 15000) {
   }
 }
 
-async function fetchWithRetry(url, options, retries = 1, timeoutMs = 15000) {
+async function fetchWithRetry(url, options, retries = 1, timeoutMs = 30000) {
   let lastError;
   for (let i = 0; i <= retries; i++) {
     try {
@@ -140,7 +140,7 @@ async function handleSTT(body, apiKey, res) {
       'Content-Type': `multipart/form-data; boundary=${boundary}`,
     },
     body: fullBody,
-  });
+  }, 2, 60000);
 
   const text = await response.text();
   let data;

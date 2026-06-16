@@ -9,6 +9,7 @@ import { Audio } from 'expo-av';
 import { Fonts } from '../../constants/fonts';
 import { Radii } from '../../constants/colors';
 import { AnimatedScreenWrapper } from '../../components/ui/premium';
+import { TranscriptionOverlay } from '../../components/TranscriptionOverlay';
 import {
   transcribeAudio, synthesizeSpeech, playAudioBase64,
   stopCurrentAudio, getStoredLanguageCode, showVoiceError,
@@ -333,6 +334,7 @@ export default function VoiceModeScreen() {
           {transcribing ? 'Transcribing...' : isRecording ? "Recording... tap to stop" : "Tap to speak"}
         </Text>
       </View>
+      <TranscriptionOverlay visible={transcribing} />
     </AnimatedScreenWrapper>
   );
 }

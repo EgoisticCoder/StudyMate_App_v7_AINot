@@ -59,21 +59,35 @@ async function handleChat(body, res) {
     });
   }
 
-  const upstream = await fetch(config.url, {
-    method: 'POST',
-    headers: upstreamHeaders(config.provider, config.key),
-    body: JSON.stringify({
-      model: config.model,
-      messages: body.messages,
-      max_tokens: body.max_tokens,
-      temperature: body.temperature,
-    }),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 55000);
 
-  const text = await upstream.text();
-  res.status(upstream.status);
-  res.setHeader('Content-Type', 'application/json');
-  return res.end(text);
+  try {
+    const upstream = await fetch(config.url, {
+      method: 'POST',
+      headers: upstreamHeaders(config.provider, config.key),
+      body: JSON.stringify({
+        model: config.model,
+        messages: body.messages,
+        max_tokens: body.max_tokens,
+        temperature: body.temperature,
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    const text = await upstream.text();
+    res.status(upstream.status);
+    res.setHeader('Content-Type', 'application/json');
+    return res.end(text);
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      return res.status(504).json({ error: 'Sarvam AI took too long to respond. Please try again.' });
+    }
+    throw err;
+  }
 }
 
 async function handleTranscribe(body, res) {

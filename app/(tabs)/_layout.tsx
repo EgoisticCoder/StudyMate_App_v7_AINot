@@ -38,20 +38,30 @@ export default function TabLayout() {
         tabBarActiveTintColor: colors.tabActive,
         tabBarInactiveTintColor: colors.tabInactive,
         tabBarStyle: {
-          backgroundColor: Platform.OS === 'ios' ? 'transparent' : colors.tabBar,
-          borderTopColor: colors.tabBarBorder,
-          borderTopWidth: StyleSheet.hairlineWidth,
-          paddingBottom: Platform.OS === 'ios' ? 24 : 10,
+          position: 'absolute',
+          bottom: Platform.OS === 'ios' ? 28 : 16,
+          left: 16,
+          right: 16,
+          backgroundColor: 'transparent',
+          borderRadius: 32,
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: colors.tabBarBorder,
+          borderTopWidth: 0,
+          paddingBottom: 8,
           paddingTop: 8,
-          height: Platform.OS === 'ios' ? 88 : 64,
-          position: Platform.OS === 'ios' ? 'absolute' : 'relative',
-          elevation: 0,
-          shadowOpacity: 0,
+          height: 64,
+          elevation: 8,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: isDark ? 0.35 : 0.08,
+          shadowRadius: 8,
         },
         tabBarBackground: () => (
-          Platform.OS === 'ios' ? (
-            <BlurView intensity={60} tint={isDark ? 'dark' : 'light'} style={StyleSheet.absoluteFill} />
-          ) : undefined
+          <BlurView
+            intensity={85}
+            tint={isDark ? 'dark' : 'light'}
+            style={[StyleSheet.absoluteFill, { borderRadius: 32, overflow: 'hidden' }]}
+          />
         ),
         tabBarLabelStyle: {
           fontSize: 11,

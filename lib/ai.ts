@@ -82,36 +82,50 @@ type ProxyChatPayload = {
 };
 
 async function callViaProxy(payload: ProxyChatPayload): Promise<string> {
-  const response = await fetch('/api/ai', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-  const raw = await response.text();
-  let data: unknown;
   try {
-    data = JSON.parse(raw);
-  } catch {
-    throw new Error(
-      response.ok
-        ? 'Invalid AI response'
-        : 'AI proxy unavailable. Redeploy on Vercel with api/ai.js and set SARVAM_API_KEY.'
-    );
-  }
+    const response = await fetch('/api/ai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
 
-  if (!response.ok) {
-    const errBody = data as { error?: string | { message?: string } };
-    const errMsg =
-      typeof errBody.error === 'string'
-        ? errBody.error
-        : errBody.error?.message || `API error ${response.status}`;
-    throw new Error(errMsg);
-  }
+    clearTimeout(timeoutId);
 
-  const content = (data as GroqResponse).choices?.[0]?.message?.content;
-  if (!content) throw new Error('Empty response from AI');
-  return content;
+    const raw = await response.text();
+    let data: unknown;
+    try {
+      data = JSON.parse(raw);
+    } catch {
+      throw new Error(
+        response.ok
+          ? 'Invalid AI response'
+          : 'AI proxy unavailable. Redeploy on Vercel with api/ai.js and set SARVAM_API_KEY.'
+      );
+    }
+
+    if (!response.ok) {
+      const errBody = data as { error?: string | { message?: string } };
+      const errMsg =
+        typeof errBody.error === 'string'
+          ? errBody.error
+          : errBody.error?.message || `API error ${response.status}`;
+      throw new Error(errMsg);
+    }
+
+    const content = (data as GroqResponse).choices?.[0]?.message?.content;
+    if (!content) throw new Error('Empty response from AI');
+    return content;
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Sarvam AI is taking too long — tap to retry');
+    }
+    throw error;
+  }
 }
 
 async function callDirect(
@@ -120,33 +134,47 @@ async function callDirect(
   maxTokens: number,
   temp: number
 ): Promise<string> {
-  const response = await fetch(config.url, {
-    method: 'POST',
-    headers: {
-      'api-subscription-key': config.key,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: config.model,
-      messages,
-      max_tokens: maxTokens,
-      temperature: temp,
-    }),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-  if (!response.ok) {
-    const errorBody = await response.text();
-    console.error(`Sarvam AI completions error (${response.status}):`, errorBody);
-    if (response.status === 401 || response.status === 403) {
-      throw new Error('Invalid API key. Please check your Sarvam API key config.');
+  try {
+    const response = await fetch(config.url, {
+      method: 'POST',
+      headers: {
+        'api-subscription-key': config.key,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: config.model,
+        messages,
+        max_tokens: maxTokens,
+        temperature: temp,
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      console.error(`Sarvam AI completions error (${response.status}):`, errorBody);
+      if (response.status === 401 || response.status === 403) {
+        throw new Error('Invalid API key. Please check your Sarvam API key config.');
+      }
+      throw new Error(`API error ${response.status}`);
     }
-    throw new Error(`API error ${response.status}`);
-  }
 
-  const data: GroqResponse = await response.json();
-  const content = data.choices?.[0]?.message?.content;
-  if (!content) throw new Error('Empty response from AI');
-  return content;
+    const data: GroqResponse = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) throw new Error('Empty response from AI');
+    return content;
+  } catch (error: unknown) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('Sarvam AI is taking too long — tap to retry');
+    }
+    throw error;
+  }
 }
 
 /** Quick connectivity check for Profile diagnostics. */

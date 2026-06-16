@@ -23,6 +23,7 @@ import { WeeklyTimetableCard } from '../../components/WeeklyTimetableCard';
 import { SubjectColors } from '../../constants/colors';
 import { getSubjectStates, SubjectState } from '../../lib/adaptiveEngine';
 import { Fonts } from '../../constants/fonts';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const { width: SW } = Dimensions.get('window');
 
@@ -231,14 +232,18 @@ export default function HomeScreen() {
   ];
 
   return (
-    <Animated.ScrollView
-      style={[st.container, { backgroundColor: colors.background, opacity: screenFade }]}
-      contentContainerStyle={st.content}
-      showsVerticalScrollIndicator={false}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
+    <LinearGradient
+      colors={isDark ? ['#09090C', '#070235'] : ['#F3F3F8', '#E6E6F2']}
+      style={{ flex: 1 }}
     >
-      {/* Hero Header — Flat premium styling */}
-      <View style={[st.hero, { backgroundColor: colors.background }]}>
+      <Animated.ScrollView
+        style={[st.container, { opacity: screenFade }]}
+        contentContainerStyle={st.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
+      >
+        {/* Hero Header — Flat premium styling */}
+        <View style={st.hero}>
         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
           {/* Streak Badge */}
           <View style={[
@@ -602,12 +607,13 @@ export default function HomeScreen() {
         </View>
       </View>
     </Animated.ScrollView>
+    </LinearGradient>
   );
 }
 
 const st = StyleSheet.create({
   container: { flex: 1 },
-  content: { paddingBottom: Platform.OS === 'ios' ? 110 : 80 },
+  content: { paddingBottom: Platform.OS === 'ios' ? 116 : 96 },
   hero: { padding: 24, paddingTop: Platform.OS === 'ios' ? 70 : 50, paddingBottom: 16 },
   streakPill: {
     flexDirection: 'row',

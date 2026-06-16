@@ -6,8 +6,8 @@ export const Colors = {
   dark: {
     // ── Surfaces — dark with subtle cool tint ──
     background:   '#09090C',   // near-black, page bg
-    surface1:     '#111117',   // default card/panel bg
-    surface2:     '#17171F',   // elevated card, hover
+    surface1:     'rgba(17,17,23,0.65)',   // default card/panel bg (translucent)
+    surface2:     'rgba(23,23,31,0.75)',   // elevated card, hover (translucent)
     surface3:     '#1E1E28',   // modals, bottom sheets, dropdowns
     surface4:     '#252530',   // active selected state bg
 
@@ -89,8 +89,8 @@ export const Colors = {
   light: {
     // ── Surfaces — cool off-white ──
     background:   '#F3F3F8',   // page bg — NOT pure white
-    surface1:     '#FFFFFF',   // cards — pops against bg
-    surface2:     '#F8F8FC',   // hover state
+    surface1:     'rgba(255,255,255,0.75)',   // cards — pops against bg (translucent)
+    surface2:     'rgba(248,248,252,0.82)',   // elevated card, hover (translucent) state
     surface3:     '#EEEEF5',   // modals, nav, bottom sheets
     surface4:     '#E4E4EE',   // active selected
 

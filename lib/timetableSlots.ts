@@ -1,5 +1,5 @@
 import { readQuery, writeQuery, writeTransaction } from './neo4j';
-import { callGroq, parseGroqJSON } from './groq';
+import { callGroq, parseGroqJSON } from './ai';
 import { v4 as uuidv4 } from 'uuid';
 import { weekKeyFromDate } from './weekUtils';
 import { progressMission } from './missions';

@@ -71,7 +71,18 @@ function RootLayoutInner() {
         <Stack.Screen name="screens/StudyScheduleScreen" options={{ presentation: 'modal' }} />
         <Stack.Screen name="screens/ReviewDeckScreen" />
         <Stack.Screen name="screens/ParentPortalScreen" />
+        <Stack.Screen name="screens/ParentalReportScreen" />
         <Stack.Screen name="screens/LeaderboardScreen" />
+        <Stack.Screen name="screens/VoiceModeScreen" options={{ presentation: 'fullScreenModal' }} />
+        <Stack.Screen name="screens/MoodHistoryScreen" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="screens/MockExamScreen" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="screens/ConceptExplainerScreen" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="screens/ShopScreen" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="screens/NotesUploadScreen" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="screens/NotesViewerScreen" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="screens/NotesRAGScreen" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="screens/MindMapScreen" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="screens/FlashcardsScreen" options={{ presentation: 'modal' }} />
       </Stack>
     </NavThemeProvider>
   );

@@ -10,7 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useTheme, useAuth } from '../../lib/context';
 import { buildStudentContext, getStudentProfile } from '../../lib/adaptiveEngine';
-import { callGroq } from '../../lib/groq';
+import { callGroq } from '../../lib/ai';
 import { writeQuery } from '../../lib/neo4j';
 import { SUBJECTS } from '../../constants/subjects';
 import { getChaptersForSubject } from '../../constants/chapters';

@@ -16,7 +16,7 @@ import { SubjectColors, Radii, Spacing } from '../../constants/colors';
 import { Fonts } from '../../constants/fonts';
 import { Chip, PrimaryButton, AnimatedScreenWrapper, SectionLabel } from '../../components/ui/premium';
 import { v4 as uuidv4 } from 'uuid';
-import { callGroqVision, hasAiApiKey } from '../../lib/groq';
+import { callGroqVision, hasAiApiKey } from '../../lib/ai';
 import { levelUpByOne } from '../../lib/gamification';
 import { useT } from '../../lib/translations';
 

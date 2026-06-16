@@ -1,4 +1,5 @@
-// Ask AI — Redesigned Doubt Solver screen with premium chips, inputs, and response cards.
+// Ask AI — Redesigned Doubt Solver screen with premium chips, inputs, response cards,
+// and Sarvam AI voice input (STT) + voice output (TTS).
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -21,9 +22,10 @@ import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system';
+import { Audio } from 'expo-av';
 import { useTheme, useAuth } from '../../lib/context';
 import { buildStudentContext, getStudentProfile } from '../../lib/adaptiveEngine';
-import { callGroq, callGroqVision } from '../../lib/groq';
+import { callGroq, callGroqVision } from '../../lib/ai';
 import { writeQuery } from '../../lib/neo4j';
 import { SUBJECTS } from '../../constants/subjects';
 import { getChaptersForSubject } from '../../constants/chapters';
@@ -32,6 +34,10 @@ import { searchStudyReferences, formatSnippetsForPrompt } from '../../lib/webSea
 import { MarkdownView } from '../../components/MarkdownView';
 import { Chip } from '../../components/ui/premium';
 import { Fonts } from '../../constants/fonts';
+import {
+  transcribeAudio, synthesizeSpeech, playAudioBase64,
+  stopCurrentAudio, getStoredLanguageCode, showVoiceError,
+} from '../../lib/sarvam';
 
 type Tab = 'type' | 'photograph' | 'resources';
 
@@ -57,6 +63,15 @@ export default function AskAIScreen() {
   const [searchNotes, setSearchNotes] = useState('');
   /** ELI5 — simpler wording + analogies */
   const [eli5, setEli5] = useState(false);
+
+  // Voice state (Sarvam AI)
+  const [isRecording, setIsRecording] = useState(false);
+  const [sttLoading, setSttLoading] = useState(false);
+  const [ttsPlaying, setTtsPlaying] = useState(false);
+  const [ttsLoading, setTtsLoading] = useState(false);
+  const [detectedLang, setDetectedLang] = useState('en-IN');
+  const recordingRef = useRef<Audio.Recording | null>(null);
+  const micPulse = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     (async () => {
@@ -400,6 +415,94 @@ ${eli5 ? '\nELI5 mode on — keep language friendly and concrete.' : ''}`;
     }
   };
 
+  // ── Voice handlers (Sarvam) ──────────────────────
+  const handleStartRecording = async () => {
+    try {
+      const { status } = await Audio.requestPermissionsAsync();
+      if (status !== 'granted') {
+        showVoiceError('Microphone permission required for voice input.');
+        return;
+      }
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+      if (recordingRef.current) {
+        await recordingRef.current.stopAndUnloadAsync();
+      }
+      setIsRecording(true);
+      const { recording: newRec } = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+      recordingRef.current = newRec;
+    } catch (err) {
+      setIsRecording(false);
+      showVoiceError('Could not start recording.');
+    }
+  };
+
+  const handleStopRecording = async () => {
+    if (!recordingRef.current) return;
+    setIsRecording(false);
+    setSttLoading(true);
+    try {
+      await recordingRef.current.stopAndUnloadAsync();
+      const uri = recordingRef.current.getURI();
+      recordingRef.current = null;
+      if (!uri) throw new Error('No recording URI');
+      const result = await transcribeAudio(uri);
+      if (result.text.trim()) {
+        setQuestion(prev => prev ? prev + ' ' + result.text : result.text);
+        setDetectedLang(result.language);
+      } else {
+        showVoiceError("Couldn't hear anything. Please try again.");
+      }
+    } catch (err: any) {
+      showVoiceError(err.message || "Couldn't transcribe audio, please type your question.");
+    } finally {
+      setSttLoading(false);
+    }
+  };
+
+  const handlePlayResponse = async () => {
+    if (ttsPlaying) {
+      await stopCurrentAudio();
+      setTtsPlaying(false);
+      return;
+    }
+    if (!response.trim()) return;
+    setTtsLoading(true);
+    try {
+      const langCode = detectedLang || await getStoredLanguageCode();
+      const audioBase64 = await synthesizeSpeech(response.slice(0, 2400), langCode);
+      if (audioBase64) {
+        await Audio.setAudioModeAsync({ allowsRecordingIOS: false, playsInSilentModeIOS: true });
+        setTtsPlaying(true);
+        const sound = await playAudioBase64(audioBase64);
+        sound.setOnPlaybackStatusUpdate((status) => {
+          if ('didJustFinish' in status && status.didJustFinish) {
+            setTtsPlaying(false);
+          }
+        });
+      }
+    } catch {
+      showVoiceError('Voice playback unavailable — text response is still visible.');
+    } finally {
+      setTtsLoading(false);
+    }
+  };
+
+  // Mic pulse animation
+  useEffect(() => {
+    if (isRecording) {
+      const loop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(micPulse, { toValue: 1.2, duration: 500, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+          Animated.timing(micPulse, { toValue: 1, duration: 500, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        ])
+      );
+      loop.start();
+      return () => loop.stop();
+    } else {
+      micPulse.setValue(1);
+    }
+  }, [isRecording]);
+
   // Animations
   const screenFade = useRef(new Animated.Value(0)).current;
   const responseFade = useRef(new Animated.Value(0)).current;
@@ -544,6 +647,27 @@ ${eli5 ? '\nELI5 mode on — keep language friendly and concrete.' : ''}`;
               textAlignVertical="top"
             />
             <View style={styles.inputActions}>
+              {/* Mic button */}
+              <Animated.View style={{ transform: [{ scale: micPulse }] }}>
+                <TouchableOpacity
+                  style={[styles.micBtnSmall, {
+                    backgroundColor: isRecording ? colors.danger : colors.surface3,
+                    borderColor: isRecording ? colors.danger : colors.borderSubtle,
+                  }]}
+                  onPress={isRecording ? handleStopRecording : handleStartRecording}
+                  disabled={sttLoading || loading}
+                >
+                  {sttLoading ? (
+                    <ActivityIndicator size={14} color={colors.accent} />
+                  ) : (
+                    <Ionicons
+                      name={isRecording ? 'stop' : 'mic'}
+                      size={18}
+                      color={isRecording ? colors.textInverse : colors.accent}
+                    />
+                  )}
+                </TouchableOpacity>
+              </Animated.View>
               <TouchableOpacity
                 style={[styles.sendBtn, { backgroundColor: colors.accent }]}
                 onPress={() => void handleSubmitText()}
@@ -556,6 +680,11 @@ ${eli5 ? '\nELI5 mode on — keep language friendly and concrete.' : ''}`;
                 )}
               </TouchableOpacity>
             </View>
+            {isRecording && (
+              <Text style={{ color: colors.danger, fontSize: 11, fontFamily: Fonts.bodyMedium, marginTop: 4 }}>
+                ● Recording... tap mic to stop
+              </Text>
+            )}
           </View>
         )}
 
@@ -616,6 +745,27 @@ ${eli5 ? '\nELI5 mode on — keep language friendly and concrete.' : ''}`;
         {/* Doubt Response area */}
         {response ? (
           <Animated.View style={[styles.responseCard, { backgroundColor: colors.surface1, borderColor: colors.borderSubtle, opacity: responseFade, transform: [{ translateY: responseSlide }] }]}>
+            {/* Speaker icon for TTS */}
+            <View style={styles.responseHeader}>
+              <TouchableOpacity
+                style={[styles.speakerBtn, { backgroundColor: colors.surface3 }]}
+                onPress={handlePlayResponse}
+                disabled={ttsLoading}
+              >
+                {ttsLoading ? (
+                  <ActivityIndicator size={14} color={colors.accent} />
+                ) : (
+                  <Ionicons
+                    name={ttsPlaying ? 'stop-circle' : 'volume-medium'}
+                    size={18}
+                    color={ttsPlaying ? colors.danger : colors.accent}
+                  />
+                )}
+              </TouchableOpacity>
+              <Text style={{ color: colors.textTertiary, fontSize: 11, fontFamily: Fonts.body, marginLeft: 6 }}>
+                {ttsPlaying ? 'Playing...' : 'Listen'}
+              </Text>
+            </View>
             <ScrollView style={{ maxHeight: 400 }} nestedScrollEnabled>
               <MarkdownView content={response} />
             </ScrollView>
@@ -667,9 +817,12 @@ const styles = StyleSheet.create({
   subjectRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth, marginBottom: 8 },
   inputArea: { borderRadius: 14, borderWidth: StyleSheet.hairlineWidth, padding: 16, marginBottom: 16 },
   questionInput: { minHeight: 120, fontSize: 15, lineHeight: 22 },
-  inputActions: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 12 },
+  inputActions: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 12, gap: 8, alignItems: 'center' },
   sendBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12, justifyContent: 'center' },
   sendText: { fontSize: 14, fontWeight: '700' },
+  micBtnSmall: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: StyleSheet.hairlineWidth },
+  speakerBtn: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  responseHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
   pickBtn: { borderWidth: StyleSheet.hairlineWidth, borderStyle: 'dashed', borderRadius: 14, padding: 28, alignItems: 'center', gap: 12 },
   pickText: { fontSize: 14 },
   imagePreview: { borderRadius: 14, overflow: 'hidden', marginBottom: 8 },

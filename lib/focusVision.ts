@@ -1,4 +1,4 @@
-import { callGroqVision } from './groq';
+import { callGroqVision } from './ai';
 
 export type FocusStatus = 'focused' | 'distracted' | 'unknown';
 

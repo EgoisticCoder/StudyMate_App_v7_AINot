@@ -1,5 +1,5 @@
-// COMPETITION & LEADERBOARD SCREEN — Redesigned ranked rows, sub-screen back header,
-// and premium social settings.
+// COMPETITION & LEADERBOARD SCREEN — Podium view, ranked rows with proportional XP bars,
+// medal icons, premium social settings.
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
@@ -17,6 +17,9 @@ import {
 import { EmptyState, SurfaceCard, Chip } from '../../components/ui/premium';
 import { Fonts } from '../../constants/fonts';
 import { ScreenSkeleton } from '../../components/LoadingSkeleton';
+
+const MEDAL_COLORS = ['#D4AF37', '#A8A8A8', '#CD7F32'] as const;
+const MEDAL_EMOJI = ['🥇', '🥈', '🥉'] as const;
 
 export default function LeaderboardScreen({ isTab = false }: { isTab?: boolean }) {
   const { colors, isDark } = useTheme();
@@ -36,6 +39,13 @@ export default function LeaderboardScreen({ isTab = false }: { isTab?: boolean }
 
   const [friendEmail, setFriendEmail] = useState('');
   const [addingFriend, setAddingFriend] = useState(false);
+
+  // Podium bar animations
+  const podiumAnims = useRef([
+    new Animated.Value(0),
+    new Animated.Value(0),
+    new Animated.Value(0),
+  ]).current;
 
   const fetchData = useCallback(async (silent = false) => {
     if (!studentId) return;
@@ -64,6 +74,16 @@ export default function LeaderboardScreen({ isTab = false }: { isTab?: boolean }
       isFirstFocus.current = false;
     }, [fetchData])
   );
+
+  // Animate podium bars when leaderboard data loads
+  useEffect(() => {
+    if (leaderboard.length > 0) {
+      podiumAnims.forEach(a => a.setValue(0));
+      Animated.stagger(150, podiumAnims.slice(0, Math.min(3, leaderboard.length)).map(anim =>
+        Animated.spring(anim, { toValue: 1, useNativeDriver: false, tension: 40, friction: 8 })
+      )).start();
+    }
+  }, [leaderboard]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -106,6 +126,8 @@ export default function LeaderboardScreen({ isTab = false }: { isTab?: boolean }
   }, []);
 
   if (loading && !refreshing) return <ScreenSkeleton />;
+
+  const maxXp = leaderboard.length > 0 ? Math.max(leaderboard[0]?.xp || 1, 1) : 1;
 
   const renderPendingOut = () =>
     friends.pendingOut.length > 0 ? (
@@ -154,6 +176,77 @@ export default function LeaderboardScreen({ isTab = false }: { isTab?: boolean }
         ))}
       </View>
     ) : null;
+
+  // Podium — top 3 users displayed as bars of different heights
+  const renderPodium = () => {
+    if (leaderboard.length < 1) return null;
+    const top3 = leaderboard.slice(0, 3);
+    // Display order: 2nd, 1st, 3rd (podium style)
+    const podiumOrder = top3.length >= 3
+      ? [top3[1], top3[0], top3[2]]
+      : top3.length === 2
+        ? [top3[1], top3[0]]
+        : [top3[0]];
+    const podiumHeights = top3.length >= 3
+      ? [90, 130, 70]
+      : top3.length === 2
+        ? [90, 130]
+        : [130];
+    const podiumRanks = top3.length >= 3
+      ? [1, 0, 2]
+      : top3.length === 2
+        ? [1, 0]
+        : [0];
+
+    return (
+      <View style={styles.podiumContainer}>
+        {podiumOrder.map((user, idx) => {
+          const realRank = podiumRanks[idx];
+          const isMe = user.id === studentId;
+          const initials = user.name
+            ? user.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
+            : '?';
+          const animIdx = Math.min(realRank, podiumAnims.length - 1);
+          const barHeight = podiumAnims[animIdx].interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, podiumHeights[idx]],
+          });
+
+          return (
+            <View key={user.id} style={styles.podiumSlot}>
+              {/* Avatar */}
+              <View style={[styles.podiumAvatar, {
+                backgroundColor: MEDAL_COLORS[realRank] + '33',
+                borderColor: MEDAL_COLORS[realRank],
+                borderWidth: isMe ? 2 : 1,
+              }]}>
+                <Text style={[styles.podiumInitials, { color: MEDAL_COLORS[realRank], fontFamily: Fonts.display }]}>
+                  {initials}
+                </Text>
+              </View>
+              <Text style={[styles.podiumName, { color: colors.textPrimary, fontFamily: Fonts.bodyMedium }]} numberOfLines={1}>
+                {isMe ? tr('you') : user.name?.split(' ')[0] || '?'}
+              </Text>
+              <Text style={[styles.podiumXp, { color: colors.textSecondary, fontFamily: Fonts.body }]}>
+                {user.xp} XP
+              </Text>
+              {/* Bar */}
+              <Animated.View style={[styles.podiumBar, {
+                height: barHeight,
+                backgroundColor: MEDAL_COLORS[realRank] + (isDark ? '44' : '28'),
+                borderColor: MEDAL_COLORS[realRank] + '55',
+              }]}>
+                <Text style={[styles.podiumMedal]}>{MEDAL_EMOJI[realRank]}</Text>
+              </Animated.View>
+              <Text style={[styles.podiumRankLabel, { color: MEDAL_COLORS[realRank], fontFamily: Fonts.display }]}>
+                #{realRank + 1}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+    );
+  };
 
   return (
     <Animated.View style={[styles.container, { backgroundColor: colors.background, opacity: screenFade }]}>
@@ -228,11 +321,18 @@ export default function LeaderboardScreen({ isTab = false }: { isTab?: boolean }
               />
             ) : (
               <View style={{ marginBottom: 16 }}>
+                {/* Podium for top 3 */}
+                {renderPodium()}
+
+                {/* Full ranked list with proportional XP bars */}
+                <Text style={[styles.sectionTitle, { color: colors.textPrimary, fontFamily: Fonts.display, marginTop: 20, marginBottom: 12 }]}>
+                  FULL RANKINGS
+                </Text>
                 {leaderboard.map((user, index) => {
                   const rank = index + 1;
                   const isMe = user.id === studentId;
-                  const borderLeftColor = rank === 1 ? '#D4AF37' : rank === 2 ? '#A8A8A8' : rank === 3 ? '#CD7F32' : 'transparent';
-                  const hasBorderLeft = rank <= 3;
+                  const xpPct = Math.max((user.xp / maxXp) * 100, 6);
+                  const medalColor = rank <= 3 ? MEDAL_COLORS[rank - 1] : undefined;
 
                   const initials = user.name
                     ? user.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
@@ -241,46 +341,65 @@ export default function LeaderboardScreen({ isTab = false }: { isTab?: boolean }
                   return (
                     <View
                       key={user.id}
-                      style={[styles.lbWrapper, { borderColor: isMe ? colors.accentBorder : colors.borderSubtle }]}
+                      style={[styles.lbWrapper, {
+                        borderColor: isMe ? colors.accentBorder : colors.borderSubtle,
+                      }]}
                     >
                       <View
                         style={[
                           styles.lbItem,
                           {
-                            borderLeftWidth: hasBorderLeft ? 3 : 0,
-                            borderLeftColor: borderLeftColor,
                             backgroundColor: isMe ? colors.accentMuted : colors.surface1,
                           }
                         ]}
                       >
-                        {/* Rank # */}
-                        <Text style={[styles.rankText, { color: colors.textPrimary, fontFamily: Fonts.display }]}>
-                          #{rank}
-                        </Text>
+                        {/* Rank or medal */}
+                        <View style={styles.rankContainer}>
+                          {rank <= 3 ? (
+                            <Text style={styles.medalEmoji}>{MEDAL_EMOJI[rank - 1]}</Text>
+                          ) : (
+                            <Text style={[styles.rankText, { color: colors.textTertiary, fontFamily: Fonts.display }]}>
+                              {rank}
+                            </Text>
+                          )}
+                        </View>
 
                         {/* Avatar initials */}
-                        <View style={[styles.avatarCircle, { backgroundColor: colors.accent + '33' }]}>
-                          <Text style={[styles.avatarInitials, { color: colors.accent, fontFamily: Fonts.display }]}>
+                        <View style={[styles.avatarCircle, {
+                          backgroundColor: medalColor ? medalColor + '22' : colors.accent + '22',
+                          borderWidth: isMe ? 1.5 : 0,
+                          borderColor: isMe ? colors.accent : 'transparent',
+                        }]}>
+                          <Text style={[styles.avatarInitials, { color: medalColor || colors.accent, fontFamily: Fonts.display }]}>
                             {initials}
                           </Text>
                         </View>
 
-                        {/* Name & level */}
+                        {/* Name, level, XP bar */}
                         <View style={styles.lbInfo}>
-                          <Text style={[styles.lbName, { color: colors.textPrimary, fontFamily: Fonts.bodyMedium }]} numberOfLines={1}>
-                            {user.name} {isMe ? `(${tr('you')})` : ''}
-                          </Text>
-                          <View style={[styles.levelBadge, { backgroundColor: colors.surface3 }]}>
-                            <Text style={[styles.levelBadgeText, { color: colors.textTertiary, fontFamily: Fonts.body }]}>
-                              {tr('level')} {user.level}
+                          <View style={styles.lbNameRow}>
+                            <Text style={[styles.lbName, { color: colors.textPrimary, fontFamily: Fonts.bodyMedium }]} numberOfLines={1}>
+                              {user.name} {isMe ? `(${tr('you')})` : ''}
+                            </Text>
+                            <Text style={[styles.lbXp, { color: medalColor || colors.accent, fontFamily: Fonts.display }]}>
+                              {user.xp} XP
                             </Text>
                           </View>
+                          <View style={styles.lbBarRow}>
+                            <View style={[styles.lbBarTrack, { backgroundColor: colors.surface3 }]}>
+                              <View style={[styles.lbBarFill, {
+                                width: `${xpPct}%`,
+                                backgroundColor: medalColor || colors.accent,
+                                opacity: 0.7,
+                              }]} />
+                            </View>
+                            <View style={[styles.levelBadge, { backgroundColor: colors.surface3 }]}>
+                              <Text style={[styles.levelBadgeText, { color: colors.textTertiary, fontFamily: Fonts.body }]}>
+                                Lv.{user.level}
+                              </Text>
+                            </View>
+                          </View>
                         </View>
-
-                        {/* XP */}
-                        <Text style={[styles.lbXp, { color: colors.accent, fontFamily: Fonts.display }]}>
-                          {user.xp} XP
-                        </Text>
                       </View>
                     </View>
                   );
@@ -409,7 +528,60 @@ const styles = StyleSheet.create({
   tabText: { fontSize: 14, fontWeight: '600' },
   section: { marginBottom: 24, marginTop: 12 },
   sectionTitle: { fontSize: 11, fontWeight: '600', letterSpacing: 0.88, textTransform: 'uppercase', marginBottom: 12 },
-  
+
+  // Podium
+  podiumContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    paddingTop: 20,
+    paddingBottom: 8,
+    gap: 16,
+  },
+  podiumSlot: {
+    alignItems: 'center',
+    width: 90,
+  },
+  podiumAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  podiumInitials: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  podiumName: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 2,
+    textAlign: 'center',
+  },
+  podiumXp: {
+    fontSize: 11,
+    marginBottom: 6,
+  },
+  podiumBar: {
+    width: 56,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: 8,
+    minHeight: 30,
+  },
+  podiumMedal: {
+    fontSize: 22,
+  },
+  podiumRankLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 6,
+  },
+
   // Ranked list rows
   lbWrapper: {
     borderRadius: 14,
@@ -420,10 +592,16 @@ const styles = StyleSheet.create({
   lbItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 64,
-    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
   },
-  rankText: { width: 32, fontSize: 15, fontWeight: '700' },
+  rankContainer: {
+    width: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rankText: { fontSize: 14, fontWeight: '700' },
+  medalEmoji: { fontSize: 18 },
   avatarCircle: {
     width: 36,
     height: 36,
@@ -433,11 +611,32 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   avatarInitials: { fontSize: 13, fontWeight: '600' },
-  lbInfo: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  lbName: { fontSize: 15, fontWeight: '500', flexShrink: 1 },
+  lbInfo: { flex: 1 },
+  lbNameRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  lbName: { fontSize: 14, fontWeight: '500', flexShrink: 1 },
+  lbXp: { fontSize: 13, fontWeight: '700', marginLeft: 8 },
+  lbBarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  lbBarTrack: {
+    flex: 1,
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  lbBarFill: {
+    height: 6,
+    borderRadius: 3,
+  },
   levelBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
-  levelBadgeText: { fontSize: 11 },
-  lbXp: { fontSize: 14, fontWeight: '600' },
+  levelBadgeText: { fontSize: 10, fontWeight: '500' },
 
   // Badges
   badgeCard: { padding: 16, borderRadius: 14, alignItems: 'center', width: 104, justifyContent: 'center' },

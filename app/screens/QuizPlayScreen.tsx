@@ -8,7 +8,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, useAuth } from '../../lib/context';
 import { buildStudentContext } from '../../lib/adaptiveEngine';
-import { callGroq, parseGroqJSON } from '../../lib/groq';
+import { callGroq, parseGroqJSON } from '../../lib/ai';
 import { writeQuery } from '../../lib/neo4j';
 import { searchStudyReferences, formatSnippetsForPrompt } from '../../lib/webSearch';
 import { ScoreCircle } from '../../components/ScoreCircle';

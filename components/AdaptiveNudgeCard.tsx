@@ -6,7 +6,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, useAuth } from '../lib/context';
 import { buildStudentContext } from '../lib/adaptiveEngine';
-import { callGroq } from '../lib/groq';
+import { callGroq } from '../lib/ai';
 import { LoadingSkeleton } from './LoadingSkeleton';
 import { Radii } from '../constants/colors';
 import { Fonts } from '../constants/fonts';

@@ -10,7 +10,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { useTheme, useAuth } from '../../lib/context';
 import { buildStudentContext, getStudentProfile } from '../../lib/adaptiveEngine';
-import { callGroqVision, parseGroqJSON } from '../../lib/groq';
+import { callGroqVision, parseGroqJSON } from '../../lib/ai';
 import { writeQuery } from '../../lib/neo4j';
 import { SUBJECTS } from '../../constants/subjects';
 import { getChaptersForSubject } from '../../constants/chapters';

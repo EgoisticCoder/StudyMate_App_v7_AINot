@@ -13,7 +13,7 @@ import { SurfaceCard, AnimatedScreenWrapper, SectionLabel, Chip } from '../../co
 import { getStudentProfile, StudentProfile } from '../../lib/adaptiveEngine';
 import { setStoredValue, testConnection, writeQuery, getStoredValue, readQuery, deleteStudentCascade, deleteStoredValue } from '../../lib/neo4j';
 import { hashPassword, verifyPassword } from '../../lib/password';
-import { hasAiApiKey, testAiConnection } from '../../lib/groq';
+import { hasAiApiKey, testAiConnection } from '../../lib/ai';
 import { shouldUseAiProxy } from '../../lib/apiKeys';
 import { getGamificationStats, GamificationStats } from '../../lib/gamification';
 import { ScreenSkeleton } from '../../components/LoadingSkeleton';
@@ -31,7 +31,7 @@ export default function ProfileScreen() {
   const [aiConnected, setAiConnected] = useState<boolean | null>(null);
   const [testingAi, setTestingAi] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [openRouterKey, setOpenRouterKey] = useState('');
+  const [sarvamKey, setSarvamKey] = useState('');
   const [customModel, setCustomModel] = useState('');
   const [neo4jUri, setNeo4jUri] = useState('');
   const [neo4jUser, setNeo4jUser] = useState('');
@@ -61,21 +61,21 @@ export default function ProfileScreen() {
         const connected = await testConnection();
         setNeo4jConnected(connected);
 
-        let storedOr = '';
+        let storedSarvam = '';
         let storedModel = '';
         let storedUri = '';
         let storedUser = '';
         let storedPass = '';
 
         if (Platform.OS === 'web') {
-          storedOr = localStorage.getItem('openrouter_api_key') || '';
+          storedSarvam = localStorage.getItem('sarvam_api_key') || '';
           storedModel = localStorage.getItem('custom_model') || '';
           storedUri = localStorage.getItem('neo4j_uri') || '';
           storedUser = localStorage.getItem('neo4j_username') || '';
           storedPass = localStorage.getItem('neo4j_password') || '';
         } else {
           const SecureStore = require('expo-secure-store');
-          storedOr = (await SecureStore.getItemAsync('openrouter_api_key')) || '';
+          storedSarvam = (await SecureStore.getItemAsync('sarvam_api_key')) || '';
           storedModel = (await SecureStore.getItemAsync('custom_model')) || '';
           storedUri = (await SecureStore.getItemAsync('neo4j_uri')) || '';
           storedUser = (await SecureStore.getItemAsync('neo4j_username')) || '';
@@ -89,7 +89,7 @@ export default function ProfileScreen() {
         }
 
         // Set inputs using stored value or fall back to environment variables
-        setOpenRouterKey(storedOr || process.env.EXPO_PUBLIC_OPENROUTER_API_KEY || '');
+        setSarvamKey(storedSarvam || process.env.EXPO_PUBLIC_SARVAM_API_KEY || '');
         setCustomModel(storedModel || '');
         setNeo4jUri(storedUri || process.env.EXPO_PUBLIC_NEO4J_URI || '');
         setNeo4jUser(storedUser || process.env.EXPO_PUBLIC_NEO4J_USERNAME || '');
@@ -141,7 +141,7 @@ export default function ProfileScreen() {
   const saveCredentials = async () => {
     setSaving(true);
     try {
-      await setStoredValue('openrouter_api_key', openRouterKey);
+      await setStoredValue('sarvam_api_key', sarvamKey);
       await setStoredValue('custom_model', customModel);
       await setStoredValue('neo4j_uri', neo4jUri);
       await setStoredValue('neo4j_username', neo4jUser);
@@ -434,8 +434,8 @@ export default function ProfileScreen() {
           <SurfaceCard style={{ padding: 16 }}>
             <Text style={[s.cardDesc, { color: colors.textSecondary, padding: 0, marginBottom: 12, fontFamily: Fonts.body }]}>
               {Platform.OS === 'web' && shouldUseAiProxy()
-                ? 'On Vercel, OpenRouter cannot be called from the browser (CORS). Keys are sent to /api/ai on your domain. Set OPENROUTER_API_KEY in Vercel env (runtime) or save keys here.'
-                : 'OpenRouter key required for AI features. On web deploy, use Vercel env OPENROUTER_API_KEY or save keys below (per browser).'}
+                ? 'On Vercel, Sarvam AI completions cannot be called directly from the browser (CORS). Requests are proxied via /api/ai. Set SARVAM_API_KEY in Vercel env (runtime) or save keys here.'
+                : 'Sarvam API key required for AI features. On web deploy, set SARVAM_API_KEY on Vercel or save keys below.'}
             </Text>
             <View style={[s.connectionRow, { paddingHorizontal: 0, marginTop: 4 }]}>
               <View style={[s.statusDot, { backgroundColor: aiConfigured ? colors.success : colors.danger }]} />
@@ -446,8 +446,8 @@ export default function ProfileScreen() {
               {testingAi && <ActivityIndicator size="small" color={colors.accent} />}
             </View>
             {[
-              { label: 'OpenRouter Key', value: openRouterKey, onChange: setOpenRouterKey, placeholder: 'sk-or-v1-...', secure: true },
-              { label: 'Custom Model (Optional)', value: customModel, onChange: setCustomModel, placeholder: 'meta-llama/llama-3.1-8b-instruct:free', secure: false },
+              { label: 'Sarvam API Key', value: sarvamKey, onChange: setSarvamKey, placeholder: 'sk_rmrcgdm5_...', secure: true },
+              { label: 'Custom Model (Optional)', value: customModel, onChange: setCustomModel, placeholder: 'sarvam-105b', secure: false },
               { label: 'Neo4j URI', value: neo4jUri, onChange: setNeo4jUri, placeholder: 'neo4j+s://xxx.neo4j.io', secure: false },
               { label: 'Neo4j Username', value: neo4jUser, onChange: setNeo4jUser, placeholder: 'neo4j', secure: false },
               { label: 'Neo4j Password', value: neo4jPass, onChange: setNeo4jPass, placeholder: 'Password', secure: true },

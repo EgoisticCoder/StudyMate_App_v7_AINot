@@ -5,7 +5,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, useAuth } from '../../lib/context';
 import { readQuery } from '../../lib/neo4j';
-import { callGroq } from '../../lib/groq';
+import { callGroq } from '../../lib/ai';
 import { Fonts } from '../../constants/fonts';
 import { Radii, Spacing } from '../../constants/colors';
 import { SectionLabel, PrimaryButton, AnimatedScreenWrapper } from '../../components/ui/premium';

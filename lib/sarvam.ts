@@ -1,0 +1,416 @@
+// Sarvam AI Voice Client — STT (Saaras v3) + TTS (Bulbul v3) + Translate (Mayura v1)
+// Used across AskAI, VoiceMode, and Notes screens
+
+import { Platform, Alert } from 'react-native';
+import { Audio } from 'expo-av';
+import * as FileSystem from 'expo-file-system/legacy';
+import { shouldUseAiProxy, getSarvamKey } from './apiKeys';
+
+// ── Sarvam API config ──────────────────────────────
+
+const SARVAM_API_URL = 'https://api.sarvam.ai';
+
+// Language code mapping
+export const SARVAM_LANGUAGES: Record<string, string> = {
+  'English': 'en-IN',
+  'Hindi': 'hi-IN',
+  'Bengali': 'bn-IN',
+  'Tamil': 'ta-IN',
+  'Telugu': 'te-IN',
+  'Kannada': 'kn-IN',
+  'Malayalam': 'ml-IN',
+  'Marathi': 'mr-IN',
+  'Gujarati': 'gu-IN',
+  'Punjabi': 'pa-IN',
+  'Odia': 'od-IN',
+};
+
+export const SARVAM_LANG_TO_NAME: Record<string, string> = Object.fromEntries(
+  Object.entries(SARVAM_LANGUAGES).map(([k, v]) => [v, k])
+);
+
+// ── TTS Audio Cache ────────────────────────────────
+
+const TTS_CACHE_SIZE = 3;
+const ttsCache = new Map<string, string>(); // text hash -> base64 audio
+
+function ttsCacheKey(text: string, lang: string): string {
+  return `${lang}::${text.slice(0, 200)}`;
+}
+
+function addToCache(key: string, audio: string) {
+  if (ttsCache.size >= TTS_CACHE_SIZE) {
+    const firstKey = ttsCache.keys().next().value;
+    if (firstKey !== undefined) ttsCache.delete(firstKey);
+  }
+  ttsCache.set(key, audio);
+}
+
+// ── Current Sound reference for playback control ───
+
+let currentSound: any = null;
+
+class WebAudioSound {
+  private audio: any;
+  private callback: ((status: any) => void) | null = null;
+
+  constructor(base64Audio: string) {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      this.audio = new window.Audio('data:audio/wav;base64,' + base64Audio);
+      this.audio.onended = () => {
+        if (this.callback) {
+          this.callback({ didJustFinish: true });
+        }
+        if (currentSound === this) {
+          currentSound = null;
+        }
+      };
+    }
+  }
+
+  async playAsync() {
+    if (this.audio) {
+      await this.audio.play();
+    }
+  }
+
+  setOnPlaybackStatusUpdate(callback: (status: any) => void) {
+    this.callback = callback;
+  }
+
+  async stopAsync() {
+    if (this.audio) {
+      this.audio.pause();
+      this.audio.currentTime = 0;
+    }
+  }
+
+  async unloadAsync() {
+    if (this.audio) {
+      this.audio.pause();
+      this.audio.src = '';
+    }
+  }
+}
+
+// ── API Call Helpers ───────────────────────────────
+
+async function callVoiceProxy(payload: Record<string, unknown>): Promise<any> {
+  const response = await fetch('/api/voice', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const text = await response.text();
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error(response.ok ? 'Invalid response from voice API' : `Voice API error (${response.status})`);
+  }
+  if (!response.ok) {
+    throw new Error(data.error || `Voice API error (${response.status})`);
+  }
+  return data;
+}
+
+async function callSarvamDirect(
+  endpoint: string,
+  body: Record<string, unknown>,
+  isFormData = false
+): Promise<any> {
+  const apiKey = await getSarvamKey();
+  if (!apiKey) throw new Error('Sarvam API key not configured');
+
+  const headers: Record<string, string> = {
+    'api-subscription-key': apiKey,
+  };
+
+  let fetchBody: any;
+  if (isFormData) {
+    // For STT, build FormData
+    const formData = new FormData();
+    Object.entries(body).forEach(([k, v]) => {
+      if (v !== undefined && v !== null) {
+        formData.append(k, v as any);
+      }
+    });
+    fetchBody = formData;
+  } else {
+    headers['Content-Type'] = 'application/json';
+    fetchBody = JSON.stringify(body);
+  }
+
+  const response = await fetch(`${SARVAM_API_URL}${endpoint}`, {
+    method: 'POST',
+    headers,
+    body: fetchBody,
+  });
+
+  const text = await response.text();
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error(`Sarvam API error: ${text.slice(0, 200)}`);
+  }
+
+  if (!response.ok) {
+    throw new Error(data.error || data.message || `Sarvam API error (${response.status})`);
+  }
+
+  return data;
+}
+
+// ── STT (Speech-to-Text) ──────────────────────────
+
+export interface STTResult {
+  text: string;
+  language: string;
+  languageName: string;
+}
+
+/**
+ * Transcribe audio file using Sarvam Saaras v3.
+ * @param audioUri - Local URI of the recorded audio file
+ * @returns Transcribed text and detected language
+ */
+export async function transcribeAudio(audioUri: string): Promise<STTResult> {
+  // Read audio file as base64
+  const base64Audio = await FileSystem.readAsStringAsync(audioUri, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+
+  const useProxy = shouldUseAiProxy();
+
+  if (useProxy) {
+    const result = await callVoiceProxy({
+      action: 'stt',
+      audio_base64: base64Audio,
+    });
+    return {
+      text: result.text || '',
+      language: result.language_code || 'en-IN',
+      languageName: SARVAM_LANG_TO_NAME[result.language_code] || 'English',
+    };
+  }
+
+  // Direct API call (native apps)
+  const apiKey = await getSarvamKey();
+  if (!apiKey) throw new Error('Sarvam API key not configured');
+
+  // Use proxy-style call with base64 for consistency
+  const response = await fetch(`${SARVAM_API_URL}/speech-to-text`, {
+    method: 'POST',
+    headers: {
+      'api-subscription-key': apiKey,
+      'Content-Type': 'multipart/form-data',
+    },
+    body: (() => {
+      const formData = new FormData();
+      formData.append('file', {
+        uri: audioUri,
+        type: 'audio/wav',
+        name: 'recording.wav',
+      } as any);
+      formData.append('model', 'saaras:v3');
+      formData.append('mode', 'transcribe');
+      return formData;
+    })(),
+  });
+
+  const responseText = await response.text();
+  let data;
+  try {
+    data = JSON.parse(responseText);
+  } catch {
+    throw new Error(`STT failed: ${responseText.slice(0, 200)}`);
+  }
+
+  if (!response.ok) {
+    throw new Error(data.error || data.message || `STT failed (${response.status})`);
+  }
+
+  const langCode = data.language_code || 'en-IN';
+  return {
+    text: data.transcript || data.text || '',
+    language: langCode,
+    languageName: SARVAM_LANG_TO_NAME[langCode] || 'English',
+  };
+}
+
+// ── TTS (Text-to-Speech) ──────────────────────────
+
+/**
+ * Synthesize speech from text using Sarvam Bulbul v3.
+ * Returns a base64 audio string. Cached for the last 3 calls.
+ */
+export async function synthesizeSpeech(
+  text: string,
+  languageCode: string = 'en-IN'
+): Promise<string> {
+  const cacheKey = ttsCacheKey(text, languageCode);
+  const cached = ttsCache.get(cacheKey);
+  if (cached) return cached;
+
+  const useProxy = shouldUseAiProxy();
+  let audioBase64: string;
+
+  if (useProxy) {
+    const result = await callVoiceProxy({
+      action: 'tts',
+      text,
+      language_code: languageCode,
+    });
+    audioBase64 = result.audio_base64 || '';
+  } else {
+    const data = await callSarvamDirect('/text-to-speech', {
+      text: text.slice(0, 2400),
+      target_language_code: languageCode,
+      speaker: languageCode.startsWith('hi') ? 'shubh' : 'aditya',
+      model: 'bulbul:v3',
+      output_audio_codec: 'wav',
+      speech_sample_rate: 22050,
+    });
+    audioBase64 = data.audios?.[0] || data.audio_base64 || data.audio || '';
+  }
+
+  if (audioBase64) {
+    addToCache(cacheKey, audioBase64);
+  }
+
+  return audioBase64;
+}
+
+// ── Audio Playback ─────────────────────────────────
+
+/**
+ * Play base64-encoded audio using expo-av.
+ * Returns the Sound object for control (stop/unload).
+ */
+export async function playAudioBase64(base64Audio: string): Promise<Audio.Sound> {
+  // Stop any currently playing audio
+  await stopCurrentAudio();
+
+  if (Platform.OS === 'web') {
+    const sound = new WebAudioSound(base64Audio);
+    currentSound = sound;
+    await sound.playAsync();
+    return sound as any;
+  }
+
+  // Write base64 to temp file and play
+  const tempUri = FileSystem.cacheDirectory + `tts_${Date.now()}.wav`;
+  await FileSystem.writeAsStringAsync(tempUri, base64Audio, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+
+  await Audio.setAudioModeAsync({
+    allowsRecordingIOS: false,
+    playsInSilentModeIOS: true,
+  });
+
+  const { sound } = await Audio.Sound.createAsync(
+    { uri: tempUri },
+    { shouldPlay: true }
+  );
+
+  currentSound = sound;
+
+  // Clean up when done
+  sound.setOnPlaybackStatusUpdate((status) => {
+    if ('didJustFinish' in status && status.didJustFinish) {
+      sound.unloadAsync().catch(() => {});
+      if (currentSound === sound) currentSound = null;
+      FileSystem.deleteAsync(tempUri, { idempotent: true }).catch(() => {});
+    }
+  });
+
+  return sound;
+}
+
+/**
+ * Stop currently playing audio.
+ */
+export async function stopCurrentAudio(): Promise<void> {
+  if (currentSound) {
+    try {
+      await currentSound.stopAsync();
+      await currentSound.unloadAsync();
+    } catch {
+      // Already unloaded
+    }
+    currentSound = null;
+  }
+}
+
+/**
+ * Check if audio is currently playing.
+ */
+export function isAudioPlaying(): boolean {
+  return currentSound !== null;
+}
+
+// ── Translate ──────────────────────────────────────
+
+export interface TranslateResult {
+  translated_text: string;
+}
+
+/**
+ * Translate text using Sarvam Mayura v1.
+ */
+export async function translateText(
+  text: string,
+  sourceLanguage: string = 'en-IN',
+  targetLanguage: string = 'hi-IN'
+): Promise<string> {
+  const useProxy = shouldUseAiProxy();
+
+  if (useProxy) {
+    const result = await callVoiceProxy({
+      action: 'translate',
+      text,
+      source_language: sourceLanguage,
+      target_language: targetLanguage,
+    });
+    return result.translated_text || '';
+  }
+
+  const data = await callSarvamDirect('/translate', {
+    input: text.slice(0, 5000),
+    source_language_code: sourceLanguage,
+    target_language_code: targetLanguage,
+    model: 'mayura:v1',
+  });
+
+  return data.translated_text || '';
+}
+
+// ── Toast helper ───────────────────────────────────
+
+export function showVoiceError(message: string) {
+  if (Platform.OS === 'web') {
+    // Use browser notification or console
+    console.warn('[Voice]', message);
+  } else {
+    Alert.alert('Voice', message);
+  }
+}
+
+// ── Get stored language preference ─────────────────
+
+export async function getStoredLanguageCode(): Promise<string> {
+  let lang = 'English';
+  if (Platform.OS === 'web') {
+    lang = localStorage.getItem('app_language') || 'English';
+  } else {
+    try {
+      const SecureStore = require('expo-secure-store');
+      lang = (await SecureStore.getItemAsync('app_language')) || 'English';
+    } catch {
+      // ignore
+    }
+  }
+  return SARVAM_LANGUAGES[lang] || 'en-IN';
+}

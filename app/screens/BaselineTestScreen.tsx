@@ -17,7 +17,7 @@ import { useTheme, useAuth, useLanguage } from '../../lib/context';
 import { writeTransaction, readQuery } from '../../lib/neo4j';
 import { v4 as uuidv4 } from 'uuid';
 import { ScoreCircle } from '../../components/ScoreCircle';
-import { callGroq, parseGroqJSON } from '../../lib/groq';
+import { callGroq, parseGroqJSON } from '../../lib/ai';
 import { getStudentProfile } from '../../lib/adaptiveEngine';
 import { getSubjectsForBoard } from '../../constants/subjects';
 import { getChaptersForSubject } from '../../constants/chapters';

@@ -8,30 +8,30 @@
  *   EXPO_PUBLIC_OPENROUTER_API_KEY
  */
 
-const OPENROUTER_CHAT_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const DEFAULT_OR_MODEL = 'meta-llama/llama-3.1-8b-instruct:free';
+const SARVAM_CHAT_URL = 'https://api.sarvam.ai/v1/chat/completions';
+const DEFAULT_SARVAM_MODEL = 'sarvam-105b';
 
 function trim(value) {
   const t = (value || '').trim();
   return t || '';
 }
 
-function resolveKeys(clientOr) {
+function resolveKeys(clientKey) {
   return {
-    orKey:
-      trim(clientOr) ||
-      trim(process.env.OPENROUTER_API_KEY) ||
-      trim(process.env.EXPO_PUBLIC_OPENROUTER_API_KEY),
+    sarvamKey:
+      trim(clientKey) ||
+      trim(process.env.SARVAM_API_KEY) ||
+      trim(process.env.EXPO_PUBLIC_SARVAM_API_KEY),
   };
 }
 
-function resolveChatConfig(orKey, customModel) {
-  if (orKey) {
+function resolveChatConfig(sarvamKey) {
+  if (sarvamKey) {
     return {
-      key: orKey,
-      url: OPENROUTER_CHAT_URL,
-      model: customModel || DEFAULT_OR_MODEL,
-      provider: 'openrouter',
+      key: sarvamKey,
+      url: SARVAM_CHAT_URL,
+      model: DEFAULT_SARVAM_MODEL,
+      provider: 'sarvam',
     };
   }
   return null;
@@ -39,23 +39,23 @@ function resolveChatConfig(orKey, customModel) {
 
 function upstreamHeaders(provider, apiKey) {
   const headers = {
-    Authorization: `Bearer ${apiKey}`,
     'Content-Type': 'application/json',
   };
-  if (provider === 'openrouter') {
-    headers['HTTP-Referer'] = 'https://studymate.ai';
-    headers['X-Title'] = 'StudyMate AI';
+  if (provider === 'sarvam') {
+    headers['api-subscription-key'] = apiKey;
+  } else {
+    headers['Authorization'] = `Bearer ${apiKey}`;
   }
   return headers;
 }
 
 async function handleChat(body, res) {
-  const { orKey } = resolveKeys(body.keys?.openrouter);
-  const config = resolveChatConfig(orKey, body.customModel);
+  const { sarvamKey } = resolveKeys(body.keys?.sarvam);
+  const config = resolveChatConfig(sarvamKey);
 
   if (!config) {
     return res.status(401).json({
-      error: 'API key not configured. Set OPENROUTER_API_KEY on Vercel or add a key in Profile.',
+      error: 'API key not configured. Set SARVAM_API_KEY on Vercel or in environment.',
     });
   }
 
@@ -63,7 +63,7 @@ async function handleChat(body, res) {
     method: 'POST',
     headers: upstreamHeaders(config.provider, config.key),
     body: JSON.stringify({
-      model: body.model || config.model,
+      model: config.model,
       messages: body.messages,
       max_tokens: body.max_tokens,
       temperature: body.temperature,

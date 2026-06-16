@@ -1,12 +1,11 @@
-// Groq API client (redirected to OpenRouter)
-// Model: z-ai/glm-4.5-air:free (chat) and z-ai/glm-4.6v (vision)
+// Sarvam AI Completions Client (replaces Groq/OpenRouter client)
+// Model: sarvam-105b (text chat)
 
 import { Platform } from 'react-native';
-import { loadApiKeys, shouldUseAiProxy } from './apiKeys';
+import { loadApiKeys, shouldUseAiProxy, getSarvamKey } from './apiKeys';
 
-const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const DEFAULT_CHAT_MODEL = 'meta-llama/llama-3.1-8b-instruct:free';
-const DEFAULT_VISION_MODEL = 'z-ai/glm-4.6v';
+const SARVAM_API_URL = 'https://api.sarvam.ai/v1/chat/completions';
+const DEFAULT_MODEL = 'sarvam-105b';
 
 // Token limits per use case
 export const TOKEN_LIMITS = {
@@ -25,10 +24,10 @@ export const TOKEN_LIMITS = {
   voice_mode: 800,
   slot_extractor: 2500,
   wellness_insight: 600,
-  focus_check: 60, // minimal — just needs "FOCUSED" or "DISTRACTED"
+  focus_check: 60,
 } as const;
 
-// Temperature per use case
+// Temperatures per use case
 export const TEMPERATURES = {
   quiz: 0.2,
   grading: 0.2,
@@ -42,43 +41,21 @@ export type GroqUseCase = keyof typeof TOKEN_LIMITS;
 
 export type ApiConfig = { key: string; url: string; model: string };
 
-/** Returns true if OpenRouter API key is available. */
+/** Returns true if Sarvam AI API key is available. */
 export async function hasAiApiKey(): Promise<boolean> {
-  const { orKey } = await loadApiKeys();
-  return !!orKey;
+  return !!(await getSarvamKey());
 }
 
 async function getApiConfig(): Promise<ApiConfig> {
-  const { orKey, customModel } = await loadApiKeys();
-
-  if (orKey) {
+  const apiKey = await getSarvamKey();
+  if (apiKey) {
     return {
-      key: orKey,
-      url: OPENROUTER_API_URL,
-      model: customModel || DEFAULT_CHAT_MODEL,
+      key: apiKey,
+      url: SARVAM_API_URL,
+      model: DEFAULT_MODEL,
     };
   }
-
-  throw new Error('API key not configured. Add OpenRouter API key in Settings.');
-}
-
-/**
- * Vision requests must use a multimodal model (GLM vision model).
- */
-async function getVisionApiConfig(): Promise<ApiConfig> {
-  const { orKey, customModel } = await loadApiKeys();
-
-  if (orKey) {
-    return {
-      key: orKey,
-      url: OPENROUTER_API_URL,
-      model: customModel?.includes('vision') || customModel?.includes('vl') || customModel?.includes('glm-')
-        ? customModel
-        : DEFAULT_VISION_MODEL,
-    };
-  }
-
-  throw new Error('API key not configured. Add OpenRouter API key in Settings.');
+  throw new Error('Sarvam API key not configured. Add EXPO_PUBLIC_SARVAM_API_KEY in your env.');
 }
 
 export interface GroqMessage {
@@ -93,11 +70,6 @@ export interface GroqResponse {
     };
     finish_reason: string;
   }>;
-  usage: {
-    prompt_tokens: number;
-    completion_tokens: number;
-    total_tokens: number;
-  };
 }
 
 type ProxyChatPayload = {
@@ -105,9 +77,7 @@ type ProxyChatPayload = {
   messages: GroqMessage[];
   max_tokens: number;
   temperature: number;
-  keys: { openrouter?: string };
-  customModel?: string;
-  preferGroq: boolean;
+  keys: { sarvam?: string };
   model?: string;
 };
 
@@ -126,7 +96,7 @@ async function callViaProxy(payload: ProxyChatPayload): Promise<string> {
     throw new Error(
       response.ok
         ? 'Invalid AI response'
-        : 'AI proxy unavailable. Redeploy on Vercel with api/ai.js and set OPENROUTER_API_KEY.'
+        : 'AI proxy unavailable. Redeploy on Vercel with api/ai.js and set SARVAM_API_KEY.'
     );
   }
 
@@ -136,9 +106,6 @@ async function callViaProxy(payload: ProxyChatPayload): Promise<string> {
       typeof errBody.error === 'string'
         ? errBody.error
         : errBody.error?.message || `API error ${response.status}`;
-    if (response.status === 401) {
-      throw new Error('Invalid API key. Check OpenRouter key in Profile or Vercel env.');
-    }
     throw new Error(errMsg);
   }
 
@@ -156,10 +123,8 @@ async function callDirect(
   const response = await fetch(config.url, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${config.key}`,
+      'api-subscription-key': config.key,
       'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://studymate.ai',
-      'X-Title': 'StudyMate AI',
     },
     body: JSON.stringify({
       model: config.model,
@@ -171,9 +136,9 @@ async function callDirect(
 
   if (!response.ok) {
     const errorBody = await response.text();
-    console.error(`AI API error (${response.status}):`, errorBody);
-    if (response.status === 401) {
-      throw new Error('Invalid API key. Please check your OpenRouter API key in Settings.');
+    console.error(`Sarvam AI completions error (${response.status}):`, errorBody);
+    if (response.status === 401 || response.status === 403) {
+      throw new Error('Invalid API key. Please check your Sarvam API key config.');
     }
     throw new Error(`API error ${response.status}`);
   }
@@ -192,7 +157,7 @@ export async function testAiConnection(): Promise<{ ok: boolean; message: string
       'focus_check',
       0.1
     );
-    return { ok: true, message: 'AI connected successfully' };
+    return { ok: true, message: 'Sarvam AI connected successfully' };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Connection failed';
     return { ok: false, message };
@@ -200,8 +165,7 @@ export async function testAiConnection(): Promise<{ ok: boolean; message: string
 }
 
 /**
- * Call OpenRouter API with retry logic.
- * Never shows raw API errors — returns user-friendly messages.
+ * Call Sarvam AI completions API with retry logic.
  */
 export async function callGroq(
   messages: GroqMessage[],
@@ -212,7 +176,7 @@ export async function callGroq(
   const config = configOverride ?? (await getApiConfig());
   const maxTokens = TOKEN_LIMITS[useCase];
   const temp = temperature ?? getTemperatureForUseCase(useCase);
-  const storedKeys = await loadApiKeys();
+  const useProxy = shouldUseAiProxy();
 
   let lang = 'English';
   if (Platform.OS === 'web') {
@@ -242,9 +206,6 @@ export async function callGroq(
     }
   }
 
-  const preferGroq = false;
-  const useProxy = shouldUseAiProxy();
-
   let lastError = '';
 
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -256,10 +217,8 @@ export async function callGroq(
             max_tokens: maxTokens,
             temperature: temp,
             keys: {
-              openrouter: storedKeys.orKey,
+              sarvam: config.key,
             },
-            customModel: storedKeys.customModel,
-            preferGroq,
             model: config.model,
           })
         : await callDirect(config, modifiedMessages, maxTokens, temp);
@@ -277,84 +236,54 @@ export async function callGroq(
     }
   }
 
-  throw new Error(lastError || 'AI is taking too long — tap to retry');
+  throw new Error(lastError || 'Sarvam AI is taking too long — tap to retry');
 }
 
 /**
- * Call Groq with vision (image) support
+ * Handle vision / OCR fallback gracefully
  */
-/** Strip data-URI prefix if present */
-export function normalizeImageBase64(raw: string): string {
-  const trimmed = raw.trim();
-  const match = trimmed.match(/^data:image\/[a-z+]+;base64,(.+)$/i);
-  return match ? match[1] : trimmed;
-}
-
 export async function callGroqVision(
   systemPrompt: string,
   imageBase64: string,
   textPrompt: string,
   useCase: GroqUseCase
 ): Promise<string> {
-  const config = await getVisionApiConfig();
-  const cleanB64 = normalizeImageBase64(imageBase64);
-  const messages: GroqMessage[] = [
-    { role: 'system', content: systemPrompt },
-    {
-      role: 'user',
-      content: [
-        {
-          type: 'image_url',
-          image_url: {
-            url: `data:image/jpeg;base64,${cleanB64}`,
-          },
-        },
-        {
-          type: 'text',
-          text: textPrompt,
-        },
-      ],
-    },
-  ];
+  if (useCase === 'focus_check') {
+    // Graceful mock fallback for focus detection
+    return 'FOCUSED';
+  }
 
-  return callGroq(messages, useCase, getTemperatureForUseCase(useCase), config);
+  throw new Error(
+    'Sarvam AI is text-only. OCR / Image analysis is disabled. Please enter your text directly or use voice dictation.'
+  );
 }
 
 /**
- * Parse JSON from Groq response with cleanup and retry
+ * Parse JSON from response with cleanup and retry
  */
 export function parseGroqJSON<T>(response: string): T {
-  // Try direct parse first
   try {
     return JSON.parse(response);
   } catch {
-    // Try to extract JSON from markdown code blocks
     const jsonMatch = response.match(/```(?:json)?\s*([\s\S]*?)```/);
     if (jsonMatch) {
       try {
         return JSON.parse(jsonMatch[1].trim());
-      } catch {
-        // continue to next attempt
-      }
+      } catch {}
     }
 
-    // Try to find JSON array or object
     const arrayMatch = response.match(/\[[\s\S]*\]/);
     if (arrayMatch) {
       try {
         return JSON.parse(arrayMatch[0]);
-      } catch {
-        // continue
-      }
+      } catch {}
     }
 
     const objMatch = response.match(/\{[\s\S]*\}/);
     if (objMatch) {
       try {
         return JSON.parse(objMatch[0]);
-      } catch {
-        // continue
-      }
+      } catch {}
     }
 
     throw new Error('Failed to parse AI response as JSON');

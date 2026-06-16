@@ -8,7 +8,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, useAuth } from '../../lib/context';
 import { buildStudentContext, getStudentProfile } from '../../lib/adaptiveEngine';
-import { callGroq } from '../../lib/groq';
+import { callGroq } from '../../lib/ai';
 import { writeQuery } from '../../lib/neo4j';
 import { SUBJECTS } from '../../constants/subjects';
 import { v4 as uuidv4 } from 'uuid';

@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
 import { useTheme, useAuth } from '../../lib/context';
 import { buildStudentContext } from '../../lib/adaptiveEngine';
-import { callGroq } from '../../lib/groq';
+import { callGroq } from '../../lib/ai';
 import { Fonts } from '../../constants/fonts';
 import { Radii } from '../../constants/colors';
 import { PrimaryButton, AnimatedScreenWrapper } from '../../components/ui/premium';

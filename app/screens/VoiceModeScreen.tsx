@@ -3,17 +3,22 @@ import { View, Text, TouchableOpacity, StyleSheet, Platform, ScrollView, Animate
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, useAuth } from '../../lib/context';
-import { callGroq, GroqMessage } from '../../lib/groq';
+import { callGroq, GroqMessage } from '../../lib/ai';
 import { buildStudentContext } from '../../lib/adaptiveEngine';
 import { Audio } from 'expo-av';
 import { Fonts } from '../../constants/fonts';
 import { Radii } from '../../constants/colors';
 import { AnimatedScreenWrapper } from '../../components/ui/premium';
+import {
+  transcribeAudio, synthesizeSpeech, playAudioBase64,
+  stopCurrentAudio, getStoredLanguageCode, showVoiceError,
+  SARVAM_LANG_TO_NAME,
+} from '../../lib/sarvam';
 
 export default function VoiceModeScreen() {
   const { colors, isDark } = useTheme();
   const { studentId } = useAuth();
-  const [messages, setMessages] = useState<{role: string, content: string}[]>([]);
+  const [messages, setMessages] = useState<{role: string, content: string, lang?: string}[]>([]);
   const [loading, setLoading] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
   const [contextStr, setContextStr] = useState('');
@@ -21,41 +26,22 @@ export default function VoiceModeScreen() {
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
-  const [recognition, setRecognition] = useState<any>(null);
+  const [playingIdx, setPlayingIdx] = useState<number | null>(null);
+  const [ttsLoading, setTtsLoading] = useState<number | null>(null);
 
   useEffect(() => {
     if (studentId) {
       buildStudentContext(studentId).then(setContextStr);
     }
     
-    // Web Speech Recognition Fallback
-    if (Platform.OS === 'web') {
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (SpeechRecognition) {
-        const rec = new SpeechRecognition();
-        rec.continuous = false;
-        rec.interimResults = false;
-        rec.lang = 'en-US';
-        
-        rec.onresult = (event: any) => {
-          const text = event.results[0][0].transcript;
-          handleSend(text);
-        };
-        
-        rec.onend = () => setIsRecording(false);
-        rec.onerror = (e: any) => {
-          console.error('Speech Recognition Error:', e);
-          setIsRecording(false);
-        };
-        setRecognition(rec);
-      }
-    }
-
     // Request permissions on load
     (async () => {
       try {
         const { status } = await Audio.requestPermissionsAsync();
-        if (status !== 'granted') return;
+        if (status !== 'granted') {
+          showVoiceError('Microphone permission is required for voice mode.');
+          return;
+        }
         await Audio.setAudioModeAsync({
           allowsRecordingIOS: true,
           playsInSilentModeIOS: true,
@@ -67,51 +53,68 @@ export default function VoiceModeScreen() {
   }, [studentId]);
 
   const startRecording = async () => {
-    if (Platform.OS === 'web' && recognition) {
-      setIsRecording(true);
-      recognition.start();
-      return;
-    }
-
     try {
       if (recording) {
         await recording.stopAndUnloadAsync();
       }
       setIsRecording(true);
-      const { recording: newRec } = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
+      
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+
+      const { recording: newRec } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
+      );
       setRecording(newRec);
     } catch (err) {
       console.error('Failed to start recording', err);
       setIsRecording(false);
+      showVoiceError('Could not start recording. Check microphone permissions.');
     }
   };
 
   const stopRecording = async () => {
-    if (Platform.OS === 'web' && recognition) {
-      recognition.stop();
-      return;
-    }
-
     if (!recording) return;
     setIsRecording(false);
-    
-    Alert.alert(
-      'Feature Unavailable',
-      'Voice transcription on native mobile devices is currently unavailable. Web-based speech-to-text is still fully functional.'
-    );
+    setTranscribing(true);
+
     try {
       await recording.stopAndUnloadAsync();
-    } catch (e) {
-      // ignore
+      const uri = recording.getURI();
+      setRecording(null);
+
+      if (!uri) {
+        showVoiceError("Couldn't save recording. Please try again.");
+        setTranscribing(false);
+        return;
+      }
+
+      // Use Sarvam STT for transcription
+      const result = await transcribeAudio(uri);
+      
+      if (!result.text.trim()) {
+        showVoiceError("Couldn't hear anything. Please speak clearly and try again.");
+        setTranscribing(false);
+        return;
+      }
+
+      // Auto-send the transcribed text
+      handleSend(result.text, result.language);
+    } catch (err: any) {
+      console.error('STT failed:', err);
+      showVoiceError(err.message || "Couldn't transcribe audio. Please try again.");
+    } finally {
+      setTranscribing(false);
     }
-    setRecording(null);
   };
 
-  const handleSendRef = useRef<((text: string) => Promise<void>) | null>(null);
+  const handleSendRef = useRef<((text: string, lang?: string) => Promise<void>) | null>(null);
 
-  const handleSend = async (text: string) => {
+  const handleSend = async (text: string, detectedLang?: string) => {
     if (!text.trim()) return;
-    const userMsg = { role: 'user', content: text };
+    const userMsg = { role: 'user', content: text, lang: detectedLang };
     setMessages(prev => [...prev, userMsg]);
     setLoading(true);
 
@@ -125,20 +128,32 @@ export default function VoiceModeScreen() {
       ];
 
       const response = await callGroq(apiMessages, 'voice_mode');
-      setMessages(prev => [...prev, { role: 'assistant', content: response }]);
+      const aiMsg = { role: 'assistant', content: response, lang: detectedLang };
+      setMessages(prev => [...prev, aiMsg]);
 
-      // Free web-based high-quality TTS
-      if (Platform.OS === 'web' && 'speechSynthesis' in window) {
-        const synth = window.speechSynthesis;
-        const utterance = new SpeechSynthesisUtterance(response);
-        const voices = synth.getVoices();
-        const bestVoice = voices.find(v => v.name.includes('Google') || v.name.includes('Neural') || v.name.includes('Online')) || voices[0];
-        if (bestVoice) {
-          utterance.voice = bestVoice;
+      // Auto-play TTS for AI response using Sarvam Bulbul v3
+      try {
+        const langCode = detectedLang || await getStoredLanguageCode();
+        setTtsLoading(messages.length + 1); // index of the new AI message
+        const audioBase64 = await synthesizeSpeech(response, langCode);
+        if (audioBase64) {
+          await Audio.setAudioModeAsync({
+            allowsRecordingIOS: false,
+            playsInSilentModeIOS: true,
+          });
+          setPlayingIdx(messages.length + 1);
+          const sound = await playAudioBase64(audioBase64);
+          sound.setOnPlaybackStatusUpdate((status) => {
+            if ('didJustFinish' in status && status.didJustFinish) {
+              setPlayingIdx(null);
+            }
+          });
         }
-        utterance.rate = 1.0;
-        utterance.pitch = 1.0;
-        synth.speak(utterance);
+      } catch (ttsErr) {
+        console.warn('TTS failed, text still visible:', ttsErr);
+        // Don't show error for TTS failure in voice mode — text is still visible
+      } finally {
+        setTtsLoading(null);
       }
 
     } catch (e) {
@@ -153,15 +168,38 @@ export default function VoiceModeScreen() {
   useEffect(() => {
     handleSendRef.current = handleSend;
   }, [handleSend]);
-  
-  useEffect(() => {
-    if (Platform.OS === 'web' && recognition) {
-      recognition.onresult = (event: any) => {
-        const text = event.results[0][0].transcript;
-        if (handleSendRef.current) handleSendRef.current(text);
-      };
+
+  const handlePlayTTS = async (text: string, index: number, lang?: string) => {
+    if (playingIdx === index) {
+      // Stop playback
+      await stopCurrentAudio();
+      setPlayingIdx(null);
+      return;
     }
-  }, [recognition]);
+
+    try {
+      setTtsLoading(index);
+      const langCode = lang || await getStoredLanguageCode();
+      const audioBase64 = await synthesizeSpeech(text, langCode);
+      if (audioBase64) {
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: false,
+          playsInSilentModeIOS: true,
+        });
+        setPlayingIdx(index);
+        const sound = await playAudioBase64(audioBase64);
+        sound.setOnPlaybackStatusUpdate((status) => {
+          if ('didJustFinish' in status && status.didJustFinish) {
+            setPlayingIdx(null);
+          }
+        });
+      }
+    } catch (err: any) {
+      showVoiceError('Voice unavailable — here\'s the text response.');
+    } finally {
+      setTtsLoading(null);
+    }
+  };
 
   // Animations
   const micPulse = useRef(new Animated.Value(1)).current;
@@ -209,38 +247,63 @@ export default function VoiceModeScreen() {
             <Text style={[styles.emptyText, { color: colors.textSecondary, fontFamily: Fonts.bodyMedium }]}>
               Tap the microphone and start speaking. I'm listening!
             </Text>
+            <Text style={[styles.emptySubText, { color: colors.textTertiary, fontFamily: Fonts.body }]}>
+              Powered by Sarvam AI • Hindi + English supported
+            </Text>
           </View>
         ) : (
           messages.map((m, i) => {
             const isUser = m.role === 'user';
             return (
-              <View 
-                key={i} 
-                style={[
-                  styles.msgBubble, 
-                  isUser 
-                    ? [styles.userBubble, { backgroundColor: colors.accent }] 
-                    : [styles.aiBubble, { backgroundColor: colors.surface2, borderColor: colors.borderSubtle }]
-                ]}
-              >
-                <Text 
-                  style={{ 
-                    color: isUser ? colors.textInverse : colors.textPrimary, 
-                    fontFamily: Fonts.body,
-                    fontSize: 15, 
-                    lineHeight: 22 
-                  }}
+              <View key={i} style={styles.msgRow}>
+                <View 
+                  style={[
+                    styles.msgBubble, 
+                    isUser 
+                      ? [styles.userBubble, { backgroundColor: colors.accent }] 
+                      : [styles.aiBubble, { backgroundColor: colors.surface2, borderColor: colors.borderSubtle }]
+                  ]}
                 >
-                  {m.content}
-                </Text>
+                  <Text 
+                    style={{ 
+                      color: isUser ? colors.textInverse : colors.textPrimary, 
+                      fontFamily: Fonts.body,
+                      fontSize: 15, 
+                      lineHeight: 22 
+                    }}
+                  >
+                    {m.content}
+                  </Text>
+                </View>
+                {/* Speaker icon for AI messages */}
+                {!isUser && (
+                  <TouchableOpacity
+                    style={[styles.speakerBtn, { backgroundColor: colors.surface3 }]}
+                    onPress={() => handlePlayTTS(m.content, i, m.lang)}
+                    disabled={ttsLoading === i}
+                  >
+                    {ttsLoading === i ? (
+                      <ActivityIndicator size={14} color={colors.accent} />
+                    ) : (
+                      <Ionicons
+                        name={playingIdx === i ? 'stop' : 'volume-medium'}
+                        size={16}
+                        color={playingIdx === i ? colors.danger : colors.accent}
+                      />
+                    )}
+                  </TouchableOpacity>
+                )}
               </View>
             );
           })
         )}
         {transcribing && (
-          <Text style={[styles.statusText, { color: colors.textTertiary, fontFamily: Fonts.body }]}>
-            Listening...
-          </Text>
+          <View style={styles.statusRow}>
+            <ActivityIndicator size="small" color={colors.accent} />
+            <Text style={[styles.statusText, { color: colors.accent, fontFamily: Fonts.bodyMedium }]}>
+              Transcribing with Sarvam AI...
+            </Text>
+          </View>
         )}
         {loading && (
           <View style={styles.loaderContainer}>
@@ -267,7 +330,7 @@ export default function VoiceModeScreen() {
           </TouchableOpacity>
         </Animated.View>
         <Text style={{ color: isRecording ? colors.danger : colors.textSecondary, fontFamily: Fonts.bodyMedium, fontSize: 13, letterSpacing: 0.3 }}>
-          {isRecording ? "Recording... tap to stop" : "Tap to speak"}
+          {transcribing ? 'Transcribing...' : isRecording ? "Recording... tap to stop" : "Tap to speak"}
         </Text>
       </View>
     </AnimatedScreenWrapper>
@@ -304,16 +367,35 @@ const styles = StyleSheet.create({
     marginBottom: 20 
   },
   emptyText: { textAlign: 'center', fontSize: 14, maxWidth: 240, lineHeight: 20 },
+  emptySubText: { textAlign: 'center', fontSize: 11, maxWidth: 200, lineHeight: 16, marginTop: 8, opacity: 0.7 },
+  msgRow: {
+    marginBottom: 12,
+  },
   msgBubble: { 
     maxWidth: '85%', 
     padding: 14, 
     borderRadius: Radii.card, 
-    marginBottom: 12,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'transparent',
   },
   userBubble: { alignSelf: 'flex-end', borderBottomRightRadius: 4 },
   aiBubble: { alignSelf: 'flex-start', borderBottomLeftRadius: 4 },
+  speakerBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+    alignSelf: 'flex-start',
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginVertical: 10,
+  },
   statusText: { marginVertical: 10, alignSelf: 'center', fontSize: 13 },
   loaderContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginVertical: 10 },
   inputArea: { 

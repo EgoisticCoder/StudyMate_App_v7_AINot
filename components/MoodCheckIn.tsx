@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useTheme, useAuth } from '../lib/context';
 import { writeQuery } from '../lib/neo4j';
-import { callGroq } from '../lib/groq';
+import { callGroq } from '../lib/ai';
 import { STRESS_SOURCES } from '../constants/subjects';
 import { v4 as uuidv4 } from 'uuid';
 

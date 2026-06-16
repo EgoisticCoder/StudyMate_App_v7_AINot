@@ -211,6 +211,7 @@ export default function HomeScreen() {
     { icon: 'chatbubble-ellipses-outline', labelKey: 'feature_ask_ai', route: '/screens/AskAIScreen', color: '#7C5CFC' },
     { icon: 'newspaper-outline', labelKey: 'feature_mock', route: '/screens/MockExamScreen', color: '#F472B6' },
     { icon: 'help-circle-outline', labelKey: 'tab_quiz', route: '/(tabs)/quiz', color: '#3B8EF3' },
+    { icon: 'cart-outline', labelKey: 'XP Shop', route: '/screens/ShopScreen', color: '#F5A623' },
   ];
 
   const STUDY_TOOLS = [

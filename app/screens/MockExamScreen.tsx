@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme, useAuth } from '../../lib/context';
 import { buildStudentContext, getStudentProfile } from '../../lib/adaptiveEngine';
-import { callGroq, callGroqVision, parseGroqJSON } from '../../lib/groq';
+import { callGroq, callGroqVision, parseGroqJSON } from '../../lib/ai';
 import { writeQuery } from '../../lib/neo4j';
 import { SUBJECTS } from '../../constants/subjects';
 import { ScoreCircle } from '../../components/ScoreCircle';
